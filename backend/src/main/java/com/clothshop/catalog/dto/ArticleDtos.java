@@ -56,7 +56,9 @@ public final class ArticleDtos {
             String displayName,
             String colourName,
             String sizeName,
-            BigDecimal buyingPrice,
+            /** Cost basis of the stock on hand. What the dialog blends the new lot into. */
+            BigDecimal avgCost,
+            BigDecimal lastBuyingPrice,
             BigDecimal sellingPrice,
             BigDecimal qtyOnHand
     ) {
@@ -81,8 +83,12 @@ public final class ArticleDtos {
             @NotNull @DecimalMin(value = "0.00", message = "Selling price cannot be negative") BigDecimal sellingPrice,
             @NotNull @Positive(message = "Quantity must be at least 1") BigDecimal quantity,
             @NotNull AddMode mode,
-            /** When adding stock to an existing article at a new cost, whether to update its prices. */
-            boolean updatePrices,
+            /**
+             * Whether to move the shelf price to {@code sellingPrice}. The buying price is
+             * never a choice - it is averaged into the cost regardless, because you paid
+             * what you paid. This flag is the only real decision when stock is topped up.
+             */
+            boolean updateSellingPrice,
             String note
     ) {
     }
@@ -93,9 +99,10 @@ public final class ArticleDtos {
             String articleCode,
             String displayName,
             BigDecimal qtyOnHand,
-            BigDecimal buyingPrice,
+            BigDecimal avgCost,
+            BigDecimal lastBuyingPrice,
             BigDecimal sellingPrice,
-            boolean pricesUpdated
+            boolean sellingPriceChanged
     ) {
     }
 
@@ -110,7 +117,8 @@ public final class ArticleDtos {
             String colour,
             String colourHex,
             String size,
-            BigDecimal buyingPrice,
+            BigDecimal avgCost,
+            BigDecimal lastBuyingPrice,
             BigDecimal sellingPrice,
             BigDecimal qtyOnHand
     ) {

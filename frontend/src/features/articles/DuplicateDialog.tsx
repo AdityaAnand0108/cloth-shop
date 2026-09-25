@@ -4,30 +4,49 @@ import type { ExistingArticle } from '../../api/types'
 const rupees = (n: number) =>
   `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
+const marginPct = (cost: number, sell: number) =>
+  sell > 0 ? ((sell - cost) / sell) * 100 : 0
+
 /**
- * Shown when the generated code already exists. The point is to never create a
- * duplicate silently, and to catch a changed buying price at the moment it happens
- * rather than three months later when the margin report looks wrong.
+ * Shown when the generated code already exists.
+ *
+ * The cost of the new lot is stated, not asked about — you paid what you paid, and it
+ * gets averaged into the cost basis either way. The only genuine decision is whether
+ * the shelf price moves, so that is the only control here.
  */
 export function DuplicateDialog({
   existing,
   incomingBuyingPrice,
-  incomingSellingPrice,
   quantity,
+  markup,
   busy,
   onCancel,
   onConfirm,
 }: {
   existing: ExistingArticle
   incomingBuyingPrice: number
-  incomingSellingPrice: number
   quantity: number
+  markup: number
   busy: boolean
   onCancel: () => void
-  onConfirm: (updatePrices: boolean) => void
+  /** The new shelf price, or null to keep the existing one. */
+  onConfirm: (sellingPrice: number | null) => void
 }) {
-  const priceChanged = incomingBuyingPrice !== existing.buyingPrice
-  const [updatePrices, setUpdatePrices] = useState(false)
+  const heldQty = Number(existing.qtyOnHand)
+  const newQty = heldQty + quantity
+
+  // Mirrors Costing.weightedAverage on the server: sold-out stock resets rather than blends.
+  const newAvgCost = heldQty > 0
+    ? (heldQty * existing.avgCost + quantity * incomingBuyingPrice) / newQty
+    : incomingBuyingPrice
+
+  const costChanged = Math.abs(incomingBuyingPrice - existing.avgCost) >= 0.005
+  const suggestedPrice = Math.ceil(newAvgCost * markup)
+
+  const [newSellingPrice, setNewSellingPrice] = useState<number | null>(null)
+
+  const keepMargin = marginPct(newAvgCost, existing.sellingPrice)
+  const raiseMargin = marginPct(newAvgCost, newSellingPrice ?? suggestedPrice)
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="dup-title">
@@ -38,38 +57,76 @@ export function DuplicateDialog({
           <dt>Code</dt><dd><code>{existing.articleCode}</code></dd>
           <dt>Article</dt><dd>{existing.displayName}</dd>
           <dt>Colour / size</dt><dd>{existing.colourName} · {existing.sizeName}</dd>
-          <dt>In stock now</dt><dd className="num">{existing.qtyOnHand}</dd>
         </dl>
 
-        <p className="modal-lead">
-          Add <strong>{quantity}</strong> more, taking stock to{' '}
-          <strong>{Number(existing.qtyOnHand) + quantity}</strong>?
+        {/* The arithmetic, shown rather than hidden. */}
+        <table className="costing">
+          <tbody>
+            <tr>
+              <th>In stock</th>
+              <td className="num">{heldQty}</td>
+              <td className="num">{rupees(existing.avgCost)}</td>
+            </tr>
+            <tr>
+              <th>Adding</th>
+              <td className="num">{quantity}</td>
+              <td className="num">{rupees(incomingBuyingPrice)}</td>
+            </tr>
+            <tr className="total">
+              <th>New stock</th>
+              <td className="num">{newQty}</td>
+              <td className="num">{rupees(newAvgCost)}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p className="muted small costing-note">
+          {costChanged
+            ? 'Average cost, because neither rate alone is true of all the pieces on the shelf.'
+            : 'Same rate as before, so the cost basis does not move.'}
         </p>
 
-        {priceChanged && (
-          <div className="price-change">
-            <p>
-              You paid {rupees(existing.buyingPrice)} before, now {rupees(incomingBuyingPrice)}.
-            </p>
-            <label className="check">
+        <fieldset className="price-choice">
+          <legend>Selling price</legend>
+
+          <label className="radio">
+            <input
+              type="radio"
+              name="selling"
+              checked={newSellingPrice === null}
+              onChange={() => setNewSellingPrice(null)}
+            />
+            <span>
+              Keep {rupees(existing.sellingPrice)}
+              <em className={keepMargin < 40 ? 'warn' : ''}>margin {keepMargin.toFixed(1)}%</em>
+            </span>
+          </label>
+
+          <label className="radio">
+            <input
+              type="radio"
+              name="selling"
+              checked={newSellingPrice !== null}
+              onChange={() => setNewSellingPrice(suggestedPrice)}
+            />
+            <span>
+              Change to{' '}
               <input
-                type="checkbox"
-                checked={updatePrices}
-                onChange={e => setUpdatePrices(e.target.checked)}
+                type="number" min="0" step="1" className="inline-price"
+                value={newSellingPrice ?? suggestedPrice}
+                onFocus={() => setNewSellingPrice(v => v ?? suggestedPrice)}
+                onChange={e => setNewSellingPrice(Number(e.target.value))}
               />
-              <span>
-                Update this article to {rupees(incomingBuyingPrice)} buying
-                / {rupees(incomingSellingPrice)} selling
-              </span>
-            </label>
-            <p className="muted small">
-              Leave unticked to keep the old prices and just add the stock.
-            </p>
-          </div>
-        )}
+              <em>margin {raiseMargin.toFixed(1)}%</em>
+            </span>
+          </label>
+        </fieldset>
 
         <div className="actions">
-          <button className="primary" onClick={() => onConfirm(updatePrices)} disabled={busy}>
+          <button
+            className="primary"
+            onClick={() => onConfirm(newSellingPrice)}
+            disabled={busy}
+          >
             {busy ? 'Saving…' : `Add ${quantity} to stock`}
           </button>
           <button className="ghost" onClick={onCancel} disabled={busy}>

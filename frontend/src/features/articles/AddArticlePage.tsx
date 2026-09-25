@@ -119,7 +119,11 @@ export function AddArticlePage() {
     return (((sell - buy) / sell) * 100).toFixed(1)
   }, [buyingPrice, sellingPrice])
 
-  async function submit(mode: 'CREATE' | 'ADD_STOCK', updatePrices = false) {
+  /**
+   * @param sellingPriceOverride a new shelf price chosen in the duplicate dialog,
+   *   or null to leave the existing one alone. Ignored when creating.
+   */
+  async function submit(mode: 'CREATE' | 'ADD_STOCK', sellingPriceOverride: number | null = null) {
     setSubmitting(true)
     setBanner(null)
     try {
@@ -130,17 +134,17 @@ export function AddArticlePage() {
         colourId: Number(sel.colourId),
         sizeId: Number(sel.sizeId),
         buyingPrice: Number(buyingPrice),
-        sellingPrice: Number(sellingPrice),
+        sellingPrice: sellingPriceOverride ?? Number(sellingPrice),
         quantity: Number(quantity),
         mode,
-        updatePrices,
+        updateSellingPrice: sellingPriceOverride !== null,
       }, idempotencyKey.current)
 
       setBanner({
         kind: 'ok',
         text: res.outcome === 'CREATED'
           ? `Created ${res.articleCode} — ${res.displayName}. ${res.qtyOnHand} in stock.`
-          : `Added to ${res.articleCode}. Now ${res.qtyOnHand} in stock${res.pricesUpdated ? ', prices updated' : ''}.`,
+          : `Added to ${res.articleCode}. Now ${res.qtyOnHand} in stock at average cost ₹${res.avgCost.toFixed(2)}${res.sellingPriceChanged ? `, selling price now ₹${res.sellingPrice.toFixed(2)}` : ''}.`,
       })
 
       setDuplicate(null)
@@ -371,11 +375,11 @@ export function AddArticlePage() {
         <DuplicateDialog
           existing={duplicate}
           incomingBuyingPrice={Number(buyingPrice)}
-          incomingSellingPrice={Number(sellingPrice)}
+          markup={lookups.defaultMarkup}
           quantity={Number(quantity)}
           busy={submitting}
           onCancel={() => setDuplicate(null)}
-          onConfirm={updatePrices => submit('ADD_STOCK', updatePrices)}
+          onConfirm={newPrice => submit('ADD_STOCK', newPrice)}
         />
       )}
     </div>

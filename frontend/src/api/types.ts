@@ -21,7 +21,9 @@ export type ExistingArticle = {
   displayName: string
   colourName: string
   sizeName: string
-  buyingPrice: number
+  /** Cost basis of the stock on hand - what a new lot gets blended into. */
+  avgCost: number
+  lastBuyingPrice: number
   sellingPrice: number
   qtyOnHand: number
 }
@@ -44,7 +46,8 @@ export type AddArticleRequest = {
   sellingPrice: number
   quantity: number
   mode: AddMode
-  updatePrices: boolean
+  /** Buying price is never optional - it is averaged in regardless. Only this is a choice. */
+  updateSellingPrice: boolean
   note?: string
 }
 
@@ -54,9 +57,10 @@ export type AddArticleResponse = {
   articleCode: string
   displayName: string
   qtyOnHand: number
-  buyingPrice: number
+  avgCost: number
+  lastBuyingPrice: number
   sellingPrice: number
-  pricesUpdated: boolean
+  sellingPriceChanged: boolean
 }
 
 export type ArticleListItem = {
@@ -68,7 +72,8 @@ export type ArticleListItem = {
   colour: string
   colourHex: string | null
   size: string
-  buyingPrice: number
+  avgCost: number
+  lastBuyingPrice: number
   sellingPrice: number
   qtyOnHand: number
 }

@@ -41,8 +41,16 @@ public class ProductVariant {
     @JoinColumn(name = "size_id", nullable = false)
     private ClothingSize size;
 
-    @Column(name = "buying_price", nullable = false, precision = 12, scale = 2)
-    private BigDecimal buyingPrice;
+    /** What the most recent lot cost. Informational - shows the trend, not the cost basis. */
+    @Column(name = "last_buying_price", nullable = false, precision = 12, scale = 2)
+    private BigDecimal lastBuyingPrice;
+
+    /**
+     * Weighted average cost of the stock on hand, recomputed on every stock-in.
+     * Margin and stock-valuation reports use this, never {@link #lastBuyingPrice}.
+     */
+    @Column(name = "avg_cost", nullable = false, precision = 12, scale = 4)
+    private BigDecimal avgCost;
 
     @Column(name = "selling_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal sellingPrice;

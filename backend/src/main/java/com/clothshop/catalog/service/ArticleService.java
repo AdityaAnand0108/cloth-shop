@@ -122,7 +122,8 @@ public class ArticleService {
         variant.setArticleCode(code);          // generated once, frozen from here on
         variant.setColour(sel.colour());
         variant.setSize(sel.size());
-        variant.setBuyingPrice(request.buyingPrice());
+        variant.setLastBuyingPrice(request.buyingPrice());
+        variant.setAvgCost(request.buyingPrice());   // first lot sets the average
         variant.setSellingPrice(request.sellingPrice());
         variants.save(variant);
 
@@ -131,29 +132,40 @@ public class ArticleService {
                 "ARTICLE", code, request.note(), user);
 
         return new AddArticleResponse("CREATED", variant.getId(), code, product.getDisplayName(),
-                balance, variant.getBuyingPrice(), variant.getSellingPrice(), false);
+                balance, variant.getAvgCost(), variant.getLastBuyingPrice(),
+                variant.getSellingPrice(), false);
     }
 
     private AddArticleResponse addStock(ProductVariant variant, AddArticleRequest request,
                                         Location location, String user) {
-        boolean pricesUpdated = false;
 
-        // The supplier raised his rate. Catch it now, not three months later when the
-        // margin report looks wrong - but only change it if the user actually said so.
-        if (request.updatePrices()) {
-            variant.setBuyingPrice(request.buyingPrice());
+        BigDecimal onHandBefore = inventory.onHand(variant.getId(), location.getId());
+
+        // The cost is not a choice - you paid what you paid. Blend the new lot into the
+        // average so the margin report stays honest, instead of pretending every piece
+        // on the shelf cost whatever the last one did.
+        variant.setAvgCost(Costing.weightedAverage(
+                onHandBefore, variant.getAvgCost(), request.quantity(), request.buyingPrice()));
+        variant.setLastBuyingPrice(request.buyingPrice());
+
+        // The shelf price IS a choice, and the only one here.
+        boolean sellingPriceChanged = false;
+        if (request.updateSellingPrice()
+                && request.sellingPrice().compareTo(variant.getSellingPrice()) != 0) {
             variant.setSellingPrice(request.sellingPrice());
-            variants.save(variant);
-            pricesUpdated = true;
+            sellingPriceChanged = true;
         }
+        variants.save(variant);
 
+        // unit_cost records what THIS lot actually cost, so the averaging stays reversible.
         BigDecimal balance = inventory.post(variant.getId(), location.getId(),
                 MovementType.PURCHASE_IN, request.quantity(), request.buyingPrice(),
                 "ARTICLE", variant.getArticleCode(), request.note(), user);
 
         return new AddArticleResponse("STOCK_ADDED", variant.getId(), variant.getArticleCode(),
                 variant.getProduct().getDisplayName(), balance,
-                variant.getBuyingPrice(), variant.getSellingPrice(), pricesUpdated);
+                variant.getAvgCost(), variant.getLastBuyingPrice(),
+                variant.getSellingPrice(), sellingPriceChanged);
     }
 
     // ------------------------------------------------------------------
@@ -177,7 +189,8 @@ public class ArticleService {
                 v.getColour().getName(),
                 v.getColour().getHex(),
                 v.getSize().getName(),
-                v.getBuyingPrice(),
+                v.getAvgCost(),
+                v.getLastBuyingPrice(),
                 v.getSellingPrice(),
                 stock.getOrDefault(v.getId(), BigDecimal.ZERO)));
     }
@@ -216,7 +229,8 @@ public class ArticleService {
                 v.getProduct().getDisplayName(),
                 v.getColour().getName(),
                 v.getSize().getName(),
-                v.getBuyingPrice(),
+                v.getAvgCost(),
+                v.getLastBuyingPrice(),
                 v.getSellingPrice(),
                 inventory.onHand(v.getId(), inventory.defaultLocation().getId()));
     }

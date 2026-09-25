@@ -226,13 +226,37 @@ td.out { color: var(--madder); font-weight: 700; }
 .dup-facts dt { color: var(--ink-3); font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 700; align-self: center; }
 .dup-facts dd { margin: 0; }
 
-.price-change {
-  border-left: 3px solid var(--brass); background: var(--brass-soft);
-  padding: 13px 15px; border-radius: var(--radius);
-  display: flex; flex-direction: column; gap: 9px;
+/* ---------- costing block in the duplicate dialog ---------- */
+.costing { border-collapse: collapse; width: 100%; min-width: 0; font-size: 14px; }
+.costing th {
+  text-align: left; padding: 7px 0; border: 0; text-transform: none;
+  letter-spacing: 0; font-size: 13px; font-weight: 600; color: var(--ink-2);
 }
-.price-change p { margin: 0; color: var(--brass); font-size: 14px; }
-.check { display: flex; gap: 9px; align-items: flex-start; font-size: 14px; cursor: pointer; color: var(--ink); }
-.check input { margin-top: 3px; flex: none; }
+.costing td { padding: 7px 0 7px 16px; border: 0; text-align: right; white-space: nowrap; }
+.costing td:last-child { width: 1%; }
+.costing tr.total th, .costing tr.total td {
+  border-top: 1px solid var(--rule); font-weight: 700; color: var(--ink); padding-top: 9px;
+}
+.costing-note { margin: -6px 0 0; }
+
+.price-choice { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.price-choice legend {
+  padding: 0 0 8px; font: 700 11px/1 'Segoe UI', sans-serif;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3);
+}
+
+.radio { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; font-size: 14px; }
+.radio input { margin-top: 4px; flex: none; }
+.radio > span { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.radio em {
+  font-style: normal; font-size: 12px; color: var(--ink-3);
+  background: var(--surface-2); padding: 3px 7px; border-radius: 3px;
+}
+.radio em.warn { color: var(--madder); background: var(--madder-soft); }
+
+.inline-price {
+  width: 96px; padding: 5px 8px; font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
 
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

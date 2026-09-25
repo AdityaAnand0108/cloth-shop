@@ -26,7 +26,7 @@ export function ArticleTable({ items }: { items: ArticleListItem[] }) {
               <th>Article</th>
               <th>Colour</th>
               <th>Size</th>
-              <th className="r">Buying</th>
+              <th className="r">Avg cost</th>
               <th className="r">Selling</th>
               <th className="r">Stock</th>
             </tr>
@@ -41,7 +41,7 @@ export function ArticleTable({ items }: { items: ArticleListItem[] }) {
                   {a.colour}
                 </td>
                 <td>{a.size}</td>
-                <td className="r num">{rupees(a.buyingPrice)}</td>
+                <td className="r num">{rupees(a.avgCost)}</td>
                 <td className="r num">{rupees(a.sellingPrice)}</td>
                 <td className={`r num ${Number(a.qtyOnHand) <= 0 ? 'out' : ''}`}>{a.qtyOnHand}</td>
               </tr>
