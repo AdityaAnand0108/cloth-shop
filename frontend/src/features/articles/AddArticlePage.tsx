@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { api, HttpError } from '../../api/client'
 import type {
   AddArticleResponse, ArticleListItem, ExistingArticle, Lookups, PreviewResponse,
@@ -120,6 +120,20 @@ export function AddArticlePage() {
   }, [buyingPrice, sellingPrice])
 
   /**
+   * The form's own submit button. A brand-new article is created immediately; an
+   * existing one always goes through the duplicate dialog first, so the cost blend
+   * and the selling-price choice are seen rather than applied silently.
+   */
+  function handleFormSubmit(e: FormEvent) {
+    e.preventDefault()
+    if (preview?.exists && preview.existing) {
+      setDuplicate(preview.existing)
+    } else {
+      submit('CREATE')
+    }
+  }
+
+  /**
    * @param sellingPriceOverride a new shelf price chosen in the duplicate dialog,
    *   or null to leave the existing one alone. Ignored when creating.
    */
@@ -214,7 +228,7 @@ export function AddArticlePage() {
 
       {banner && <div className={`banner ${banner.kind}`}>{banner.text}</div>}
 
-      <form className="card" onSubmit={e => { e.preventDefault(); submit(preview?.exists ? 'ADD_STOCK' : 'CREATE') }}>
+      <form className="card" onSubmit={handleFormSubmit}>
         <div className="grid">
           <label className="field">
             <span>Type of article</span>
