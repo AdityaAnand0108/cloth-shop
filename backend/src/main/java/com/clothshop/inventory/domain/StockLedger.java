@@ -42,6 +42,10 @@ public class StockLedger {
     @Column(name = "unit_cost", updatable = false, precision = 12, scale = 2)
     private BigDecimal unitCost;
 
+    /** Who this lot was bought from. Null on movements that are not purchases. */
+    @Column(name = "wholesaler_id", updatable = false)
+    private Long wholesalerId;
+
     @Column(name = "ref_doc_type", updatable = false, length = 24)
     private String refDocType;
 

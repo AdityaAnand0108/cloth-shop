@@ -6,15 +6,24 @@ import com.clothshop.catalog.repository.*;
 import com.clothshop.common.ApiException;
 import com.clothshop.inventory.domain.Location;
 import com.clothshop.inventory.domain.MovementType;
+import com.clothshop.inventory.domain.StockLedger;
+import com.clothshop.inventory.repository.StockLedgerRepository;
 import com.clothshop.inventory.service.InventoryService;
+import com.clothshop.platform.domain.Wholesaler;
+import com.clothshop.platform.repository.StaffRepository;
+import com.clothshop.platform.repository.WholesalerRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class ArticleService {
@@ -28,12 +37,16 @@ public class ArticleService {
     private final ProductVariantRepository variants;
     private final ArticleCodeGenerator codeGenerator;
     private final InventoryService inventory;
+    private final StockLedgerRepository ledger;
+    private final WholesalerRepository wholesalers;
+    private final StaffRepository staff;
 
     public ArticleService(ArticleTypeRepository articleTypes, BrandRepository brands,
                           MaterialRepository materials, ColourRepository colours,
                           ClothingSizeRepository sizes, ProductRepository products,
                           ProductVariantRepository variants, ArticleCodeGenerator codeGenerator,
-                          InventoryService inventory) {
+                          InventoryService inventory, StockLedgerRepository ledger,
+                          WholesalerRepository wholesalers, StaffRepository staff) {
         this.articleTypes = articleTypes;
         this.brands = brands;
         this.materials = materials;
@@ -43,6 +56,9 @@ public class ArticleService {
         this.variants = variants;
         this.codeGenerator = codeGenerator;
         this.inventory = inventory;
+        this.ledger = ledger;
+        this.wholesalers = wholesalers;
+        this.staff = staff;
     }
 
     // ------------------------------------------------------------------
@@ -74,11 +90,19 @@ public class ArticleService {
      * the current state, so the UI can ask the user instead of guessing.
      */
     @Transactional
-    public AddArticleResponse add(AddArticleRequest request, String user) {
+    public AddArticleResponse add(AddArticleRequest request) {
         Selection sel = resolve(request.articleTypeId(), request.brandId(), request.materialId(),
                 request.colourId(), request.sizeId());
 
         requireSizeMatchesArticle(sel);
+
+        // Both are checked before anything is written: a stock movement that cannot say
+        // where it came from or who entered it is worth less than no movement at all.
+        Wholesaler wholesaler = wholesalers.findById(request.wholesalerId())
+                .orElseThrow(() -> ApiException.notFound("Wholesaler"));
+        String user = staff.findById(request.staffId())
+                .orElseThrow(() -> ApiException.notFound("Staff member"))
+                .getName();
 
         String code = codeGenerator.generate(sel.type(), sel.brand(), sel.material(), sel.colour(), sel.size());
         Optional<ProductVariant> existing = variants.findByArticleCode(code);
@@ -96,12 +120,12 @@ public class ArticleService {
         }
 
         return existing.isPresent()
-                ? addStock(existing.get(), request, location, user)
-                : createArticle(sel, code, request, location, user);
+                ? addStock(existing.get(), request, location, wholesaler, user)
+                : createArticle(sel, code, request, location, wholesaler, user);
     }
 
     private AddArticleResponse createArticle(Selection sel, String code, AddArticleRequest request,
-                                             Location location, String user) {
+                                             Location location, Wholesaler wholesaler, String user) {
         // The form never mentions "product" - find or create it behind the scenes, so
         // reports can group every colour and size of the same style together.
         Product product = products
@@ -129,7 +153,7 @@ public class ArticleService {
 
         BigDecimal balance = inventory.post(variant.getId(), location.getId(),
                 MovementType.OPENING_STOCK, request.quantity(), request.buyingPrice(),
-                "ARTICLE", code, request.note(), user);
+                wholesaler.getId(), "ARTICLE", code, request.note(), user);
 
         return new AddArticleResponse("CREATED", variant.getId(), code, product.getDisplayName(),
                 balance, variant.getAvgCost(), variant.getLastBuyingPrice(),
@@ -137,7 +161,7 @@ public class ArticleService {
     }
 
     private AddArticleResponse addStock(ProductVariant variant, AddArticleRequest request,
-                                        Location location, String user) {
+                                        Location location, Wholesaler wholesaler, String user) {
 
         BigDecimal onHandBefore = inventory.onHand(variant.getId(), location.getId());
 
@@ -160,7 +184,7 @@ public class ArticleService {
         // unit_cost records what THIS lot actually cost, so the averaging stays reversible.
         BigDecimal balance = inventory.post(variant.getId(), location.getId(),
                 MovementType.PURCHASE_IN, request.quantity(), request.buyingPrice(),
-                "ARTICLE", variant.getArticleCode(), request.note(), user);
+                wholesaler.getId(), "ARTICLE", variant.getArticleCode(), request.note(), user);
 
         return new AddArticleResponse("STOCK_ADDED", variant.getId(), variant.getArticleCode(),
                 variant.getProduct().getDisplayName(), balance,
@@ -173,9 +197,10 @@ public class ArticleService {
     // ------------------------------------------------------------------
 
     @Transactional(readOnly = true)
-    public Page<ArticleListItem> list(String query, Pageable pageable) {
-        String q = (query == null) ? "" : query.trim();   // "" matches everything through the LIKE
-        Page<ProductVariant> page = variants.search(q, pageable);
+    public Page<ArticleListItem> list(ArticleFilter filter, Pageable pageable) {
+        Page<ProductVariant> page = variants.search(
+                filter.q(), filter.articleTypeId(), filter.brandId(),
+                filter.materialId(), filter.colourId(), filter.sizeId(), pageable);
 
         Map<Long, BigDecimal> stock = inventory.onHandByVariant(
                 page.getContent().stream().map(ProductVariant::getId).toList());
@@ -193,6 +218,115 @@ public class ArticleService {
                 v.getLastBuyingPrice(),
                 v.getSellingPrice(),
                 stock.getOrDefault(v.getId(), BigDecimal.ZERO)));
+    }
+
+    // ------------------------------------------------------------------
+    // Detail
+    // ------------------------------------------------------------------
+
+    /**
+     * One article, told completely: what it cost, what it sells for, what is left, and
+     * every movement that got it there — plus its other colours and sizes, because
+     * "not in your size" is a sale you can still save.
+     *
+     * <p>The whole ledger for one article is read rather than aggregated in SQL. A
+     * garment accumulates a few dozen movements in a year, the screen shows them anyway,
+     * and one small query beats two plus a hand-written aggregate.
+     */
+    @Transactional(readOnly = true)
+    public ArticleDetail detail(Long variantId) {
+        ProductVariant v = variants.findDetailById(variantId)
+                .orElseThrow(() -> ApiException.notFound("Article"));
+        Product product = v.getProduct();
+        Location location = inventory.defaultLocation();
+
+        List<StockLedger> history = ledger.findByVariantIdOrderByCreatedAtDesc(variantId);
+
+        BigDecimal totalIn = BigDecimal.ZERO;
+        BigDecimal totalOut = BigDecimal.ZERO;
+        Instant lastSaleAt = null;
+        for (StockLedger row : history) {
+            if (row.getQtyDelta().signum() > 0) {
+                totalIn = totalIn.add(row.getQtyDelta());
+            } else {
+                totalOut = totalOut.add(row.getQtyDelta().negate());
+            }
+            // history is newest first, so the first sale seen is the latest one
+            if (lastSaleAt == null && row.getMovementType() == MovementType.SALE_OUT) {
+                lastSaleAt = row.getCreatedAt();
+            }
+        }
+
+        return new ArticleDetail(
+                v.getId(),
+                v.getArticleCode(),
+                product.getDisplayName(),
+                product.getArticleType().getName(),
+                product.getBrand().getName(),
+                product.getMaterial().getName(),
+                v.getColour().getName(),
+                v.getColour().getHex(),
+                v.getSize().getName(),
+                product.getHsnCode(),
+                v.getStatus(),
+                v.getCreatedAt(),
+                v.getAvgCost(),
+                v.getLastBuyingPrice(),
+                v.getSellingPrice(),
+                v.getMrp(),
+                inventory.onHand(v.getId(), location.getId()),
+                v.getReorderLevel(),
+                totalIn,
+                totalOut,
+                history.isEmpty() ? null : history.get(history.size() - 1).getCreatedAt(),
+                history.isEmpty() ? null : history.get(0).getCreatedAt(),
+                lastSaleAt,
+                toLedgerEntries(history),
+                siblingsOf(v, location));
+    }
+
+    /** Supplier names are resolved in one lookup for the whole history, not one per row. */
+    private List<LedgerEntry> toLedgerEntries(List<StockLedger> history) {
+        List<Long> supplierIds = history.stream()
+                .map(StockLedger::getWholesalerId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        Map<Long, String> names = supplierIds.isEmpty()
+                ? Map.of()
+                : wholesalers.findAllById(supplierIds).stream()
+                        .collect(Collectors.toMap(Wholesaler::getId, Wholesaler::getName));
+
+        return history.stream()
+                .map(row -> new LedgerEntry(
+                        row.getId(),
+                        row.getMovementType().name(),
+                        row.getQtyDelta(),
+                        row.getBalanceAfter(),
+                        row.getUnitCost(),
+                        row.getWholesalerId() == null ? null : names.get(row.getWholesalerId()),
+                        row.getNote(),
+                        row.getCreatedBy(),
+                        row.getCreatedAt()))
+                .toList();
+    }
+
+    private List<SiblingVariant> siblingsOf(ProductVariant variant, Location location) {
+        List<ProductVariant> others = variants.findSiblings(variant.getProduct().getId(), variant.getId());
+        Map<Long, BigDecimal> stock = inventory.onHandByVariant(
+                others.stream().map(ProductVariant::getId).toList());
+
+        return others.stream()
+                .map(s -> new SiblingVariant(
+                        s.getId(),
+                        s.getArticleCode(),
+                        s.getColour().getName(),
+                        s.getColour().getHex(),
+                        s.getSize().getName(),
+                        s.getSellingPrice(),
+                        stock.getOrDefault(s.getId(), BigDecimal.ZERO)))
+                .toList();
     }
 
     // ------------------------------------------------------------------

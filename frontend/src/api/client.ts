@@ -1,6 +1,6 @@
 import type {
-  AddArticleRequest, AddArticleResponse, ApiError, ArticleListItem,
-  LookupItem, Lookups, Page, PreviewResponse,
+  AddArticleRequest, AddArticleResponse, ApiError, ArticleDetail, ArticleFilters,
+  ArticleListItem, LookupItem, Lookups, Page, PreviewResponse, WholesalerItem,
 } from './types'
 
 const BASE = '/api/v1'
@@ -39,6 +39,12 @@ export const api = {
       body: JSON.stringify({ name, code: code || null }),
     }),
 
+  createWholesaler: (body: { name: string; phone: string; address: string }) =>
+    request<WholesalerItem>('/wholesalers', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
   previewCode: (body: {
     articleTypeId: number; brandId: number; materialId: number
     colourId: number; sizeId: number
@@ -59,6 +65,18 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  listArticles: (q = '') =>
-    request<Page<ArticleListItem>>(`/articles?size=50${q ? `&q=${encodeURIComponent(q)}` : ''}`),
+  article: (variantId: number) => request<ArticleDetail>(`/articles/${variantId}`),
+
+  /**
+   * Blank filters are left off the query string entirely, so the server sees "any"
+   * rather than having to interpret an empty value. Pass a signal to drop the
+   * response of a search the user has already typed past.
+   */
+  listArticles: (filters: Partial<ArticleFilters> = {}, signal?: AbortSignal) => {
+    const params = new URLSearchParams({ size: '100' })
+    for (const [key, value] of Object.entries(filters)) {
+      if (value) params.set(key, value)
+    }
+    return request<Page<ArticleListItem>>(`/articles?${params}`, { signal })
+  },
 }

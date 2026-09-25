@@ -53,6 +53,7 @@ public class InventoryService {
      * Append one movement and re-project the cached quantity.
      *
      * @param qtyDelta positive to bring stock in, negative to take it out
+     * @param wholesalerId who supplied this lot, or null when the movement is not a purchase
      * @return the balance after this movement
      */
     @Transactional(propagation = Propagation.MANDATORY)
@@ -61,6 +62,7 @@ public class InventoryService {
                            MovementType type,
                            BigDecimal qtyDelta,
                            BigDecimal unitCost,
+                           Long wholesalerId,
                            String refDocType,
                            String refDocId,
                            String note,
@@ -93,6 +95,7 @@ public class InventoryService {
         entry.setQtyDelta(qtyDelta);
         entry.setBalanceAfter(balanceAfter);
         entry.setUnitCost(unitCost);
+        entry.setWholesalerId(wholesalerId);
         entry.setRefDocType(refDocType);
         entry.setRefDocId(refDocId);
         entry.setNote(note);

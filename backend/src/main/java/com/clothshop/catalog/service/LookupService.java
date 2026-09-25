@@ -2,10 +2,16 @@ package com.clothshop.catalog.service;
 
 import com.clothshop.catalog.domain.Brand;
 import com.clothshop.catalog.dto.ArticleDtos.CreateBrandRequest;
+import com.clothshop.catalog.dto.ArticleDtos.CreateWholesalerRequest;
 import com.clothshop.catalog.dto.ArticleDtos.LookupItem;
 import com.clothshop.catalog.dto.ArticleDtos.LookupsResponse;
+import com.clothshop.catalog.dto.ArticleDtos.StaffItem;
+import com.clothshop.catalog.dto.ArticleDtos.WholesalerItem;
 import com.clothshop.catalog.repository.*;
 import com.clothshop.common.ApiException;
+import com.clothshop.platform.domain.Wholesaler;
+import com.clothshop.platform.repository.StaffRepository;
+import com.clothshop.platform.repository.WholesalerRepository;
 import com.clothshop.platform.service.SettingsService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,16 +28,21 @@ public class LookupService {
     private final ColourRepository colours;
     private final ClothingSizeRepository sizes;
     private final BrandRepository brands;
+    private final WholesalerRepository wholesalers;
+    private final StaffRepository staff;
     private final SettingsService settings;
 
     public LookupService(ArticleTypeRepository articleTypes, MaterialRepository materials,
                          ColourRepository colours, ClothingSizeRepository sizes,
-                         BrandRepository brands, SettingsService settings) {
+                         BrandRepository brands, WholesalerRepository wholesalers,
+                         StaffRepository staff, SettingsService settings) {
         this.articleTypes = articleTypes;
         this.materials = materials;
         this.colours = colours;
         this.sizes = sizes;
         this.brands = brands;
+        this.wholesalers = wholesalers;
+        this.staff = staff;
         this.settings = settings;
     }
 
@@ -56,7 +67,52 @@ public class LookupService {
                 brands.findByActiveTrueOrderByNameAsc().stream()
                         .map(b -> new LookupItem(b.getId(), b.getCode(), b.getName(), null, null))
                         .toList(),
+                wholesalers.findByActiveTrueOrderByNameAsc().stream()
+                        .map(w -> new WholesalerItem(w.getId(), w.getName(), w.getPhone(), w.getAddress()))
+                        .toList(),
+                staff.findByActiveTrueOrderBySortOrderAsc().stream()
+                        .map(s -> new StaffItem(s.getId(), s.getName()))
+                        .toList(),
                 settings.defaultMarkup());
+    }
+
+    /**
+     * Wholesalers are open-ended like brands, so staff add them mid-entry rather than
+     * abandoning the form. Name, phone and address are all required — a supplier you
+     * cannot ring up is not much of a record.
+     */
+    @Transactional
+    public WholesalerItem createWholesaler(CreateWholesalerRequest request) {
+        String name = request.name() == null ? "" : request.name().trim();
+        String phone = request.phone() == null ? "" : request.phone().trim();
+        String address = request.address() == null ? "" : request.address().trim();
+
+        if (name.length() < 2) {
+            throw ApiException.badRequest("WHOLESALER_NAME_TOO_SHORT",
+                    "Wholesaler name needs at least 2 characters");
+        }
+        if (phone.isBlank()) {
+            throw ApiException.badRequest("WHOLESALER_PHONE_REQUIRED", "A contact number is required");
+        }
+        if (address.isBlank()) {
+            throw ApiException.badRequest("WHOLESALER_ADDRESS_REQUIRED", "An address is required");
+        }
+
+        wholesalers.findByNameIgnoreCase(name).ifPresent(existing -> {
+            throw ApiException.conflict("WHOLESALER_EXISTS",
+                    name + " is already on the list.",
+                    Map.of("id", existing.getId(), "phone", existing.getPhone()));
+        });
+
+        Wholesaler wholesaler = new Wholesaler();
+        wholesaler.setName(name);
+        wholesaler.setPhone(phone);
+        wholesaler.setAddress(address);
+        wholesaler.setActive(true);
+        wholesalers.save(wholesaler);
+
+        return new WholesalerItem(wholesaler.getId(), wholesaler.getName(),
+                wholesaler.getPhone(), wholesaler.getAddress());
     }
 
     /**
