@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { api, HttpError } from '../../api/client'
 import type {
-  AddArticleResponse, ExistingArticle, Lookups, PreviewResponse,
+  AddArticleResponse, ExistingArticle, LookupItem, Lookups, PreviewResponse,
 } from '../../api/types'
 import { CodePreview } from './CodePreview'
 import { DuplicateDialog } from './DuplicateDialog'
+import { NewBrandDialog } from './NewBrandDialog'
+import { NewWholesalerDialog } from './NewWholesalerDialog'
 
 type Selection = {
   articleTypeId: string
@@ -30,6 +32,13 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
   const [sellingPrice, setSellingPrice] = useState('')
   const [sellingPriceLocked, setSellingPriceLocked] = useState(true)
   const [quantity, setQuantity] = useState('1')
+  const [wholesalerId, setWholesalerId] = useState('')
+  // Whoever is at the counter usually enters a run of articles, so this is
+  // deliberately not cleared between saves.
+  const [staffId, setStaffId] = useState('')
+
+  const [showNewBrand, setShowNewBrand] = useState(false)
+  const [showNewWholesaler, setShowNewWholesaler] = useState(false)
 
   const [preview, setPreview] = useState<PreviewResponse | null>(null)
   const [duplicate, setDuplicate] = useState<ExistingArticle | null>(null)
@@ -75,8 +84,8 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
   }, [buyingPrice, sellingPriceLocked, lookups])
 
   const codeFragments = useMemo(() => {
-    const pick = (list: Lookups[keyof Lookups] | undefined, id: string) =>
-      Array.isArray(list) ? list.find(i => String(i.id) === id)?.code ?? null : null
+    const pick = (list: LookupItem[] | undefined, id: string) =>
+      list?.find(i => String(i.id) === id)?.code ?? null
     return [
       pick(lookups?.articleTypes, sel.articleTypeId),
       pick(lookups?.brands, sel.brandId),
@@ -87,6 +96,8 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
   }, [lookups, sel])
 
   const allSelected = codeFragments.every(Boolean)
+
+  const selectedWholesaler = lookups?.wholesalers.find(w => String(w.id) === wholesalerId) ?? null
 
   // Only the existence check needs the server; the code itself assembles locally.
   useEffect(() => {
@@ -143,6 +154,8 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
         buyingPrice: Number(buyingPrice),
         sellingPrice: sellingPriceOverride ?? Number(sellingPrice),
         quantity: Number(quantity),
+        wholesalerId: Number(wholesalerId),
+        staffId: Number(staffId),
         mode,
         updateSellingPrice: sellingPriceOverride !== null,
       }, idempotencyKey.current)
@@ -173,27 +186,14 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
     setSellingPrice('')
     setSellingPriceLocked(true)
     setQuantity('1')
+    setWholesalerId('')
     setPreview(null)
     idempotencyKey.current = newIdempotencyKey()
     firstFieldRef.current?.focus()
   }
 
-  async function addBrand() {
-    const name = window.prompt('New brand name')
-    if (!name?.trim()) return
-    try {
-      const brand = await api.createBrand(name.trim())
-      setLookups(l => l && { ...l, brands: [...l.brands, brand].sort((a, b) => a.name.localeCompare(b.name)) })
-      setSel(s => ({ ...s, brandId: String(brand.id) }))
-      setBanner({ kind: 'ok', text: `Added ${brand.name} with code ${brand.code}.` })
-    } catch (e) {
-      // A taken 2-letter code comes back here with suggestions in details.
-      setBanner({ kind: 'err', text: e instanceof Error ? e.message : 'Could not add brand' })
-    }
-  }
-
   const canSubmit = allSelected && Number(buyingPrice) >= 0 && buyingPrice !== ''
-    && Number(quantity) > 0 && !submitting
+    && Number(quantity) > 0 && wholesalerId !== '' && staffId !== '' && !submitting
 
   if (loadError) {
     return (
@@ -255,7 +255,7 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
           <label className="field">
             <span>
               Brand of article
-              <button type="button" className="link" onClick={addBrand}>+ new</button>
+              <button type="button" className="link" onClick={() => setShowNewBrand(true)}>+ new</button>
             </span>
             <select
               value={sel.brandId}
@@ -320,6 +320,51 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
           </label>
         </div>
 
+        <div className="grid">
+          <label className="field">
+            <span>
+              Bought from
+              <button type="button" className="link" onClick={() => setShowNewWholesaler(true)}>
+                + new
+              </button>
+            </span>
+            <select
+              value={wholesalerId}
+              onChange={e => setWholesalerId(e.target.value)}
+              required
+            >
+              <option value="">Select…</option>
+              {lookups.wholesalers.map(w => (
+                <option key={w.id} value={w.id}>{w.name}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Added by</span>
+            <select
+              value={staffId}
+              onChange={e => setStaffId(e.target.value)}
+              required
+            >
+              <option value="">Select…</option>
+              {lookups.staff.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </label>
+
+          {selectedWholesaler && (
+            <div className="field">
+              <span>Supplier contact</span>
+              <p className="supplier-contact">
+                {selectedWholesaler.phone}
+                <em>{selectedWholesaler.address}</em>
+              </p>
+            </div>
+          )}
+        </div>
+
         <div className="grid prices">
           <label className="field">
             <span>Buying price</span>
@@ -375,6 +420,36 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
           </button>
         </div>
       </form>
+
+      {showNewBrand && (
+        <NewBrandDialog
+          onCancel={() => setShowNewBrand(false)}
+          onCreated={brand => {
+            setLookups(l => l && {
+              ...l,
+              brands: [...l.brands, brand].sort((a, b) => a.name.localeCompare(b.name)),
+            })
+            setSel(s => ({ ...s, brandId: String(brand.id) }))
+            setShowNewBrand(false)
+            setBanner({ kind: 'ok', text: `Added ${brand.name} with code ${brand.code}.` })
+          }}
+        />
+      )}
+
+      {showNewWholesaler && (
+        <NewWholesalerDialog
+          onCancel={() => setShowNewWholesaler(false)}
+          onCreated={wholesaler => {
+            setLookups(l => l && {
+              ...l,
+              wholesalers: [...l.wholesalers, wholesaler].sort((a, b) => a.name.localeCompare(b.name)),
+            })
+            setWholesalerId(String(wholesaler.id))
+            setShowNewWholesaler(false)
+            setBanner({ kind: 'ok', text: `Added ${wholesaler.name}.` })
+          }}
+        />
+      )}
 
       {duplicate && (
         <DuplicateDialog

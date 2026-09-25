@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 
 /** Request and response shapes for the Add Article form. Grouped so they read together. */
@@ -24,11 +25,27 @@ public final class ArticleDtos {
             List<LookupItem> colours,
             List<LookupItem> sizes,
             List<LookupItem> brands,
+            List<WholesalerItem> wholesalers,
+            List<StaffItem> staff,
             BigDecimal defaultMarkup
     ) {
     }
 
+    /** Carries the phone and address too, so the form can show who it is about to credit. */
+    public record WholesalerItem(Long id, String name, String phone, String address) {
+    }
+
+    public record StaffItem(Long id, String name) {
+    }
+
     public record CreateBrandRequest(@NotNull String name, String code) {
+    }
+
+    public record CreateWholesalerRequest(
+            @NotNull String name,
+            @NotNull String phone,
+            @NotNull String address
+    ) {
     }
 
     // ---------- code preview ----------
@@ -82,6 +99,10 @@ public final class ArticleDtos {
             @NotNull @DecimalMin(value = "0.00", message = "Buying price cannot be negative") BigDecimal buyingPrice,
             @NotNull @DecimalMin(value = "0.00", message = "Selling price cannot be negative") BigDecimal sellingPrice,
             @NotNull @Positive(message = "Quantity must be at least 1") BigDecimal quantity,
+            /** Who this lot was bought from. Recorded against the movement, not the article. */
+            @NotNull(message = "Choose where this was bought from") Long wholesalerId,
+            /** Who is entering it. Their name becomes the ledger row's created_by. */
+            @NotNull(message = "Choose who is adding this") Long staffId,
             @NotNull AddMode mode,
             /**
              * Whether to move the shelf price to {@code sellingPrice}. The buying price is
@@ -108,6 +129,24 @@ public final class ArticleDtos {
 
     // ---------- list ----------
 
+    /**
+     * What the browse screen is asking for. Every field is optional: a null lookup id
+     * means "any", and a blank {@code q} matches everything through the LIKE.
+     */
+    public record ArticleFilter(
+            String q,
+            Long articleTypeId,
+            Long brandId,
+            Long materialId,
+            Long colourId,
+            Long sizeId
+    ) {
+        /** Null and blank are the same thing to the query, so normalise once here. */
+        public ArticleFilter {
+            q = (q == null) ? "" : q.trim();
+        }
+    }
+
     public record ArticleListItem(
             Long variantId,
             String articleCode,
@@ -119,6 +158,79 @@ public final class ArticleDtos {
             String size,
             BigDecimal avgCost,
             BigDecimal lastBuyingPrice,
+            BigDecimal sellingPrice,
+            BigDecimal qtyOnHand
+    ) {
+    }
+
+    // ---------- detail ----------
+
+    /**
+     * Everything one article can tell you, assembled for the person deciding what to
+     * charge for it. Money arithmetic (margin, break-even, what a discount leaves)
+     * is deliberately not here — those are what-ifs the screen recomputes as the user
+     * looks, not facts the server owns.
+     */
+    public record ArticleDetail(
+            // identity
+            Long variantId,
+            String articleCode,
+            String displayName,
+            String articleType,
+            String brand,
+            String material,
+            String colour,
+            String colourHex,
+            String size,
+            String hsnCode,
+            String status,
+            Instant createdAt,
+
+            // what it cost and what it sells for
+            BigDecimal avgCost,
+            BigDecimal lastBuyingPrice,
+            BigDecimal sellingPrice,
+            BigDecimal mrp,
+
+            // what is on the shelf
+            BigDecimal qtyOnHand,
+            BigDecimal reorderLevel,
+
+            // how it has moved, over its whole life
+            BigDecimal totalIn,
+            BigDecimal totalOut,
+            Instant firstMovementAt,
+            Instant lastMovementAt,
+            Instant lastSaleAt,
+
+            List<LedgerEntry> ledger,
+            List<SiblingVariant> siblings
+    ) {
+    }
+
+    /** One row of the article's history. The ledger is append-only, so this is the truth. */
+    public record LedgerEntry(
+            Long id,
+            String movementType,
+            BigDecimal qtyDelta,
+            BigDecimal balanceAfter,
+            /** What this particular lot cost — not the running average. */
+            BigDecimal unitCost,
+            /** Null for movements recorded before suppliers were tracked. */
+            String wholesaler,
+            String note,
+            String createdBy,
+            Instant createdAt
+    ) {
+    }
+
+    /** Another colour or size of the same style, to offer when this one does not fit. */
+    public record SiblingVariant(
+            Long variantId,
+            String articleCode,
+            String colour,
+            String colourHex,
+            String size,
             BigDecimal sellingPrice,
             BigDecimal qtyOnHand
     ) {

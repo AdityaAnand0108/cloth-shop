@@ -1,4 +1,9 @@
-export function DashboardPage({ onAdd }: { onAdd: () => void }) {
+type Props = {
+  onAdd: () => void
+  onViewArticles: () => void
+}
+
+export function DashboardPage({ onAdd, onViewArticles }: Props) {
   return (
     <div className="page">
       <header className="page-head">
@@ -7,9 +12,14 @@ export function DashboardPage({ onAdd }: { onAdd: () => void }) {
       </header>
 
       <div className="card">
-        <button type="button" className="primary" onClick={onAdd}>
-          + Add
-        </button>
+        <div className="actions">
+          <button type="button" className="primary" onClick={onAdd}>
+            + Add
+          </button>
+          <button type="button" onClick={onViewArticles}>
+            View all articles
+          </button>
+        </div>
       </div>
     </div>
   )

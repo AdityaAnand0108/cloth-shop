@@ -70,6 +70,7 @@ code, .num, .mono { font-family: 'Cascadia Mono', Consolas, ui-monospace, monosp
 }
 
 .section-title { margin: 0; font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 9px; }
+.list-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .count {
   font: 600 11px/1 'Segoe UI', sans-serif;
   background: var(--accent-soft); color: var(--accent);
@@ -232,6 +233,103 @@ tr:last-child td { border-bottom: 0; }
 td code { color: var(--accent-strong); font-weight: 700; }
 .r { text-align: right; }
 td.out { color: var(--danger); font-weight: 700; }
+
+/* ---------- article detail ---------- */
+.self-start { align-self: flex-start; }
+
+.detail-head { display: flex; flex-direction: column; gap: 10px; }
+.detail-code { display: flex; align-items: center; gap: 12px; }
+.detail-code code {
+  font-size: 30px; font-weight: 700; letter-spacing: 0.06em;
+  color: var(--accent-strong);
+}
+.detail-head h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.chip {
+  display: inline-flex; align-items: center;
+  font-size: 12.5px; font-weight: 600; color: var(--ink-2);
+  background: var(--surface); border: 1px solid var(--border);
+  padding: 5px 11px; border-radius: 999px;
+}
+
+.notes { display: flex; flex-direction: column; gap: 8px; }
+.note {
+  margin: 0; padding: 12px 15px; border-radius: var(--radius);
+  border: 1px solid transparent; font-size: 14px; font-weight: 500;
+}
+.note.ok { background: var(--success-soft); border-color: #bfe6d4; color: var(--success); }
+.note.warn { background: var(--warning-soft); border-color: #eedcb4; color: var(--warning); }
+.note.info { background: var(--accent-soft); border-color: #cdd8f7; color: var(--accent-strong); }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 18px; }
+.stat { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.stat-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
+  text-transform: uppercase; color: var(--ink-3);
+}
+.stat-value { font: 600 18px/1.25 'Cascadia Mono', monospace; color: var(--ink); }
+.stat-value.strong { font-size: 24px; font-weight: 700; }
+.stat-value.ok { color: var(--success); }
+.stat-value.bad { color: var(--danger); }
+.stat-hint { font-size: 12px; color: var(--ink-3); }
+
+tr.below-cost td { background: var(--danger-soft); color: var(--danger); }
+tr.break-even td { border-top: 2px solid var(--border-strong); font-weight: 700; color: var(--ink-2); }
+
+.asking { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; }
+.asking .field { max-width: 190px; }
+.asking-verdict {
+  flex: 1; min-width: 220px;
+  padding: 11px 14px; border-radius: var(--radius);
+  font-size: 14px; font-weight: 600;
+}
+.asking-verdict.idle { background: var(--surface-2); color: var(--ink-3); font-weight: 500; }
+.asking-verdict.ok { background: var(--success-soft); color: var(--success); }
+.asking-verdict.bad { background: var(--danger-soft); color: var(--danger); }
+
+.code-link {
+  border: 0; background: none; padding: 0; box-shadow: none;
+  font: 700 14px/1 'Cascadia Mono', monospace;
+  color: var(--accent-strong); cursor: pointer;
+}
+.code-link:hover { text-decoration: underline; }
+button.small-btn { padding: 6px 12px; font-size: 13px; }
+
+.supplier-contact {
+  margin: 0; padding: 10px 12px;
+  background: var(--surface-2); border-radius: var(--radius-sm);
+  font-size: 14px; color: var(--ink-2);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.supplier-contact em { font-style: normal; font-size: 12.5px; color: var(--ink-3); }
+
+.code-input {
+  max-width: 96px;
+  font-family: 'Cascadia Mono', monospace;
+  letter-spacing: 0.14em; text-transform: uppercase;
+}
+
+.suggestions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+textarea {
+  font: inherit;
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  width: 100%;
+  min-width: 0;
+  resize: vertical;
+  box-shadow: var(--shadow-xs);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+textarea:hover { border-color: var(--ink-3); }
+textarea:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
 
 /* ---------- modal ---------- */
 .modal-backdrop {

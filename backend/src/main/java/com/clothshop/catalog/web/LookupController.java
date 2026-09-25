@@ -1,8 +1,10 @@
 package com.clothshop.catalog.web;
 
 import com.clothshop.catalog.dto.ArticleDtos.CreateBrandRequest;
+import com.clothshop.catalog.dto.ArticleDtos.CreateWholesalerRequest;
 import com.clothshop.catalog.dto.ArticleDtos.LookupItem;
 import com.clothshop.catalog.dto.ArticleDtos.LookupsResponse;
+import com.clothshop.catalog.dto.ArticleDtos.WholesalerItem;
 import com.clothshop.catalog.service.LookupService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -28,5 +30,11 @@ public class LookupController {
     @ResponseStatus(HttpStatus.CREATED)
     public LookupItem createBrand(@Valid @RequestBody CreateBrandRequest request) {
         return lookups.createBrand(request);
+    }
+
+    @PostMapping("/wholesalers")
+    @ResponseStatus(HttpStatus.CREATED)
+    public WholesalerItem createWholesaler(@Valid @RequestBody CreateWholesalerRequest request) {
+        return lookups.createWholesaler(request);
     }
 }
