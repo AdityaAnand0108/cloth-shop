@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { api, HttpError } from '../../api/client'
 import type {
-  AddArticleResponse, ArticleListItem, ExistingArticle, Lookups, PreviewResponse,
+  AddArticleResponse, ExistingArticle, Lookups, PreviewResponse,
 } from '../../api/types'
 import { CodePreview } from './CodePreview'
 import { DuplicateDialog } from './DuplicateDialog'
-import { ArticleTable } from './ArticleTable'
 
 type Selection = {
   articleTypeId: string
@@ -22,7 +21,7 @@ const EMPTY: Selection = {
 const newIdempotencyKey = () =>
   (crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`)
 
-export function AddArticlePage() {
+export function AddArticlePage({ onBack }: { onBack: () => void }) {
   const [lookups, setLookups] = useState<Lookups | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
 
@@ -36,7 +35,6 @@ export function AddArticlePage() {
   const [duplicate, setDuplicate] = useState<ExistingArticle | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [banner, setBanner] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
-  const [articles, setArticles] = useState<ArticleListItem[]>([])
 
   // One key per form session. Reused across retries so a double-tap is harmless;
   // reset only after a submission actually succeeds.
@@ -47,12 +45,7 @@ export function AddArticlePage() {
     api.lookups()
       .then(setLookups)
       .catch((e: Error) => setLoadError(e.message))
-    refreshList()
   }, [])
-
-  function refreshList() {
-    api.listArticles().then(p => setArticles(p.content)).catch(() => { /* list is not critical */ })
-  }
 
   // Sizes depend on the article type: a jean has no size M.
   const sizeGroupId = useMemo(() => {
@@ -163,7 +156,6 @@ export function AddArticlePage() {
 
       setDuplicate(null)
       resetForm()
-      refreshList()
     } catch (e) {
       if (e instanceof HttpError && e.body.code === 'ARTICLE_EXISTS') {
         setDuplicate(e.body.details.existing as ExistingArticle)
@@ -219,6 +211,7 @@ export function AddArticlePage() {
   return (
     <div className="page">
       <header className="page-head">
+        <button type="button" className="link" onClick={onBack}>&larr; Dashboard</button>
         <h1>Add article to inventory</h1>
         <p className="muted">
           Pick the five attributes and the article code builds itself. If the code already
@@ -382,8 +375,6 @@ export function AddArticlePage() {
           </button>
         </div>
       </form>
-
-      <ArticleTable items={articles} />
 
       {duplicate && (
         <DuplicateDialog
