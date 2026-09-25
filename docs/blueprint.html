@@ -1,0 +1,1257 @@
+<title>Cloth Shop System Blueprint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+:root{
+  --paper:#F1F2F6;
+  --surface:#FFFFFF;
+  --surface-2:#E7EAF2;
+  --ink:#14172A;
+  --ink-2:#4A506B;
+  --ink-3:#7A8098;
+  --rule:#D2D6E3;
+  --rule-2:#BFC5D6;
+  --indigo:#2B3A80;
+  --indigo-soft:#E0E4F6;
+  --madder:#A2323F;
+  --madder-soft:#F6E0E2;
+  --sage:#3F6B4B;
+  --sage-soft:#DDEBDF;
+  --brass:#7E6212;
+  --brass-soft:#F3EBD2;
+  --shadow:0 1px 2px rgba(20,23,42,.06), 0 8px 24px -16px rgba(20,23,42,.28);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0D1020;
+    --surface:#161A2C;
+    --surface-2:#1E2339;
+    --ink:#E7E9F3;
+    --ink-2:#A7AEC7;
+    --ink-3:#787F99;
+    --rule:#2B3147;
+    --rule-2:#3A4160;
+    --indigo:#96A8F0;
+    --indigo-soft:#212951;
+    --madder:#E3838F;
+    --madder-soft:#38202A;
+    --sage:#8CC095;
+    --sage-soft:#1C2E23;
+    --brass:#D6B155;
+    --brass-soft:#2E2718;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -18px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0D1020;
+  --surface:#161A2C;
+  --surface-2:#1E2339;
+  --ink:#E7E9F3;
+  --ink-2:#A7AEC7;
+  --ink-3:#787F99;
+  --rule:#2B3147;
+  --rule-2:#3A4160;
+  --indigo:#96A8F0;
+  --indigo-soft:#212951;
+  --madder:#E3838F;
+  --madder-soft:#38202A;
+  --sage:#8CC095;
+  --sage-soft:#1C2E23;
+  --brass:#D6B155;
+  --brass-soft:#2E2718;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -18px rgba(0,0,0,.9);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"Source Serif 4","Iowan Old Style",Georgia,serif;
+  font-size:16.5px;
+  line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4,.ui{font-family:Archivo,"Helvetica Neue",Arial,sans-serif}
+code,kbd,.mono,th,.tbl td:first-child{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace}
+
+a{color:var(--indigo)}
+:focus-visible{outline:2px solid var(--indigo);outline-offset:3px;border-radius:2px}
+
+/* ---------- shell ---------- */
+.masthead{
+  border-bottom:1px solid var(--rule);
+  background:var(--surface);
+}
+.masthead-in{
+  max-width:1240px;margin:0 auto;padding:44px 32px 38px;
+  display:flex;flex-wrap:wrap;gap:28px;align-items:flex-end;justify-content:space-between;
+}
+.eyebrow{
+  font-family:Archivo,sans-serif;font-size:11px;font-weight:700;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--indigo);
+  display:flex;align-items:center;gap:10px;
+}
+.eyebrow::before{
+  content:"";width:34px;height:9px;flex:none;
+  background:repeating-linear-gradient(90deg,currentColor 0 1.5px,transparent 1.5px 5px);
+}
+h1{
+  font-size:clamp(31px,5vw,50px);font-weight:800;letter-spacing:-.026em;
+  line-height:1.04;margin:14px 0 0;text-wrap:balance;max-width:15ch;
+}
+.dek{margin:14px 0 0;max-width:52ch;color:var(--ink-2);font-size:17px}
+.stamp{
+  border:1px solid var(--rule-2);background:var(--paper);
+  padding:14px 18px;min-width:210px;
+}
+.stamp dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:5px 16px;font-size:12px}
+.stamp dt{font-family:Archivo,sans-serif;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);align-self:center}
+.stamp dd{margin:0;font-family:"IBM Plex Mono",monospace;font-size:12px;text-align:right;color:var(--ink)}
+
+.wrap{max-width:1240px;margin:0 auto;padding:0 32px 96px;display:grid;grid-template-columns:196px minmax(0,1fr);gap:56px;align-items:start}
+
+/* ---------- toc ---------- */
+.toc{position:sticky;top:24px;padding-top:44px}
+.toc-h{font-family:Archivo,sans-serif;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);margin-bottom:12px}
+.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+.toc a{
+  display:block;padding:5px 0 5px 13px;border-left:2px solid var(--rule);
+  font-family:Archivo,sans-serif;font-size:13px;line-height:1.35;
+  color:var(--ink-2);text-decoration:none;
+}
+.toc a:hover{color:var(--indigo);border-left-color:var(--indigo);background:var(--indigo-soft)}
+
+/* ---------- sections ---------- */
+.doc{padding-top:44px;min-width:0}
+section{scroll-margin-top:20px;padding-bottom:14px}
+section + section{margin-top:56px;padding-top:52px;border-top:1px solid var(--rule)}
+h2{
+  font-size:clamp(23px,3vw,31px);font-weight:700;letter-spacing:-.02em;
+  margin:0 0 6px;text-wrap:balance;
+}
+h2 .tag{
+  display:block;font-size:10px;font-weight:700;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--indigo);margin-bottom:9px;
+}
+h3{font-size:16px;font-weight:700;letter-spacing:-.005em;margin:34px 0 8px}
+h4{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin:26px 0 8px}
+p{margin:0 0 14px;max-width:68ch}
+.doc ul,.doc ol{max-width:68ch;padding-left:20px;margin:0 0 14px}
+.doc li{margin-bottom:6px}
+.doc li::marker{color:var(--ink-3)}
+strong{font-weight:600;color:var(--ink)}
+code{font-size:.855em;background:var(--surface-2);padding:.12em .38em;border-radius:2px;color:var(--ink)}
+
+/* ---------- callouts ---------- */
+.callout{
+  border-left:3px solid var(--madder);background:var(--madder-soft);
+  padding:14px 18px;margin:20px 0;max-width:68ch;
+}
+.callout.note{border-left-color:var(--indigo);background:var(--indigo-soft)}
+.callout.ok{border-left-color:var(--sage);background:var(--sage-soft)}
+.callout p:last-child{margin-bottom:0}
+.callout .lbl{
+  font-family:Archivo,sans-serif;font-size:10px;font-weight:700;letter-spacing:.12em;
+  text-transform:uppercase;display:block;margin-bottom:5px;color:var(--madder);
+}
+.callout.note .lbl{color:var(--indigo)}
+.callout.ok .lbl{color:var(--sage)}
+
+/* ---------- tables ---------- */
+.scroll{overflow-x:auto;margin:16px 0 22px;border:1px solid var(--rule);background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:13.5px;line-height:1.5}
+caption{
+  text-align:left;font-family:Archivo,sans-serif;font-size:11px;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);
+  padding:11px 16px;border-bottom:1px solid var(--rule);background:var(--surface-2);
+}
+th{
+  text-align:left;font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-3);padding:9px 16px;border-bottom:1px solid var(--rule);white-space:nowrap;
+}
+td{padding:10px 16px;border-bottom:1px solid var(--rule);vertical-align:top;color:var(--ink-2)}
+tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--indigo);font-size:12.5px;font-weight:500;white-space:nowrap}
+.tbl td:last-child{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--ink-3);line-height:1.55}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- figures ---------- */
+figure{margin:26px 0;padding:0}
+figure .fbox{border:1px solid var(--rule);background:var(--surface);padding:22px 20px;overflow-x:auto}
+svg.dia{display:block;width:100%;height:auto;min-width:520px;color:var(--ink-2)}
+figcaption{
+  font-size:13px;color:var(--ink-3);margin-top:10px;max-width:68ch;
+  padding-left:13px;border-left:2px solid var(--rule);
+}
+
+/* ---------- module grid ---------- */
+.mods{display:grid;grid-template-columns:repeat(auto-fill,minmax(228px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);margin:20px 0 24px}
+.mod{background:var(--surface);padding:15px 17px}
+.mod b{display:block;font-family:Archivo,sans-serif;font-size:13.5px;font-weight:700;margin-bottom:3px}
+.mod span{font-size:13px;color:var(--ink-2);line-height:1.5;display:block}
+.mod .pkg{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--indigo);display:block;margin-top:7px}
+
+/* ---------- phases ---------- */
+.phases{display:flex;flex-direction:column;gap:1px;background:var(--rule);border:1px solid var(--rule);margin:20px 0}
+.phase{background:var(--surface);display:grid;grid-template-columns:64px minmax(0,1fr) 108px;gap:20px;padding:17px 19px;align-items:start}
+.phase .no{font-family:Archivo,sans-serif;font-size:26px;font-weight:800;color:var(--rule-2);line-height:1;letter-spacing:-.03em}
+.phase b{display:block;font-family:Archivo,sans-serif;font-size:14px;font-weight:700;margin-bottom:4px}
+.phase p{margin:0;font-size:14px;color:var(--ink-2);max-width:none}
+.phase .wk{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-3);text-align:right;padding-top:3px;white-space:nowrap}
+
+/* ---------- chips ---------- */
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 20px}
+.chip{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;padding:4px 9px;
+  border:1px solid var(--rule-2);color:var(--ink-2);background:var(--surface);
+}
+.chip.k{border-color:var(--indigo);color:var(--indigo);background:var(--indigo-soft)}
+
+/* ---------- api list ---------- */
+.api{border:1px solid var(--rule);background:var(--surface);margin:16px 0 22px}
+.api-row{display:grid;grid-template-columns:64px 1fr;gap:14px;padding:9px 16px;border-bottom:1px solid var(--rule);font-size:13px;align-items:baseline}
+.api-row:last-child{border-bottom:0}
+.api-row .m{font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;letter-spacing:.05em;text-align:right;color:var(--sage)}
+.api-row .m.post{color:var(--indigo)}
+.api-row .m.del{color:var(--madder)}
+.api-row .p{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--ink)}
+.api-row .d{color:var(--ink-3);font-family:"Source Serif 4",serif;font-size:13px}
+.api-row > div:last-child{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline}
+
+/* ---------- two-col ---------- */
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:0 40px}
+.cols > div{min-width:0}
+.cols ul{max-width:none}
+
+footer{border-top:1px solid var(--rule);margin-top:56px;padding-top:22px;font-size:13px;color:var(--ink-3);max-width:68ch}
+
+@media (max-width:980px){
+  .wrap{grid-template-columns:1fr;gap:0;padding:0 22px 72px}
+  .masthead-in{padding:32px 22px 28px}
+  .toc{position:static;padding:26px 0 0;border-bottom:1px solid var(--rule);padding-bottom:16px}
+  .toc ol{flex-direction:row;overflow-x:auto;gap:0;padding-bottom:4px}
+  .toc a{border-left:0;border-bottom:2px solid var(--rule);white-space:nowrap;padding:5px 13px 6px 0;margin-right:13px}
+  .toc a:hover{background:none;border-bottom-color:var(--indigo)}
+  .doc{padding-top:34px}
+  .phase{grid-template-columns:44px minmax(0,1fr);gap:14px}
+  .phase .wk{grid-column:2;text-align:left;padding-top:6px}
+  .api-row{grid-template-columns:52px 1fr;gap:10px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<header class="masthead">
+  <div class="masthead-in">
+    <div>
+      <div class="eyebrow">High-level design &middot; v1 draft</div>
+      <h1>Cloth Shop System Blueprint</h1>
+      <p class="dek">Architecture, feature set, data model and build order for a single-store garment retail system — React front end, Spring&nbsp;Boot back end, GST billing at the counter.</p>
+    </div>
+    <div class="stamp">
+      <dl>
+        <dt>Front end</dt><dd>React 18 + TS</dd>
+        <dt>Back end</dt><dd>Spring Boot 3</dd>
+        <dt>Database</dt><dd>PostgreSQL 16</dd>
+        <dt>Shape</dt><dd>Modular monolith</dd>
+        <dt>Item entry</dt><dd>Typed codes</dd>
+        <dt>Tables</dt><dd class="num">48</dd>
+        <dt>To MVP</dt><dd>~10 weeks</dd>
+      </dl>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <nav class="toc" aria-label="Contents">
+    <div class="toc-h">Contents</div>
+    <ol>
+      <li><a href="#scope">Scope &amp; assumptions</a></li>
+      <li><a href="#arch">Architecture</a></li>
+      <li><a href="#modules">Module map</a></li>
+      <li><a href="#features">Feature set</a></li>
+      <li><a href="#variants">The variant model</a></li>
+      <li><a href="#codes">Item codes &amp; entry</a></li>
+      <li><a href="#ledger">Stock ledger</a></li>
+      <li><a href="#tables">Table catalog</a></li>
+      <li><a href="#checkout">Checkout flow</a></li>
+      <li><a href="#discounts">Discount engine</a></li>
+      <li><a href="#rules">Engineering rules</a></li>
+      <li><a href="#api">API surface</a></li>
+      <li><a href="#deploy">Deployment</a></li>
+      <li><a href="#roadmap">Build order</a></li>
+    </ol>
+  </nav>
+
+  <main class="doc">
+
+  <!-- ============ SCOPE ============ -->
+  <section id="scope">
+    <h2><span class="tag">01 &mdash; Ground rules</span>Scope &amp; assumptions</h2>
+    <p>Everything below is designed for one physical shop in India with a handful of staff, billing at a counter. There is <strong>no barcode scanner</strong> — each type of cloth carries a short code that the cashier types. The schema is multi-store-ready — every stock and sales row carries a <code>store_id</code> — but nothing else is built for scale you don't have.</p>
+
+    <div class="scroll">
+      <table class="tbl">
+        <caption>Assumptions this design rests on</caption>
+        <thead><tr><th>Assumption</th><th>Consequence if wrong</th></tr></thead>
+        <tbody>
+          <tr><td>India / GST</td><td>Tax module changes shape: HSN, CGST-SGST split and place-of-supply logic all become dead weight.</td></tr>
+          <tr><td>1 store, 2&ndash;6 users</td><td>None near-term. Multi-store needs stock transfers and per-store number series — both already in the schema.</td></tr>
+          <tr><td>Counter POS first, no web storefront</td><td>An online store adds a reservation model on stock and an order-fulfilment state machine. Plan it as Phase 5, not a retrofit.</td></tr>
+          <tr><td>No scanner &mdash; a typed code per cloth type</td><td>Item lookup becomes a search problem instead of an exact-match problem. The POS entry box turns into the highest-risk piece of UI in the system. See <a href="#codes">Item codes &amp; entry</a>.</td></tr>
+          <tr><td>The code identifies the <em>style</em>, not the size</td><td>If your codes already go down to size and colour, the variant picker becomes optional and billing gets one step shorter. The design supports both.</td></tr>
+          <tr><td>Some goods sold by the metre (fabric, not garments)</td><td>Quantities must be decimal from day one. Retrofitting <code>NUMERIC(12,3)</code> over integer stock is painful.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout note">
+      <span class="lbl">One decision to make now</span>
+      <p>Do you sell <strong>cut fabric by the metre</strong> as well as stitched garments? It changes the unit-of-measure handling, the label format and the return rules. The design below assumes yes, because supporting both is much cheaper than adding it later.</p>
+    </div>
+  </section>
+
+  <!-- ============ ARCHITECTURE ============ -->
+  <section id="arch">
+    <h2><span class="tag">02 &mdash; Shape</span>Architecture</h2>
+    <p>Build a <strong>modular monolith</strong>: one Spring Boot application, one database, strict package boundaries between modules. Not microservices. A shop doing a few hundred bills a day gets nothing from a service mesh except a distributed-transaction problem you'd have to solve to keep stock and billing consistent.</p>
+    <p>The discipline that matters is internal: each module owns its tables, exposes a Java interface, and never reaches into another module's repositories. If you ever do need to split something out, the seams are already cut.</p>
+
+    <figure>
+      <div class="fbox">
+        <svg class="dia" viewBox="0 0 940 520" role="img" aria-label="Architecture: three React clients reach a Spring Boot modular monolith through Nginx; the POS holds an offline outbox and talks to a local print agent; the app writes to PostgreSQL and calls out to messaging and payment providers.">
+          <defs>
+            <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+            </marker>
+            <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#A2323F"/>
+            </marker>
+          </defs>
+          <g font-family="Archivo, sans-serif" fill="currentColor">
+
+            <!-- clients -->
+            <text x="30" y="24" font-size="10" font-weight="700" letter-spacing="1.4" fill="#7A8098">CLIENTS &mdash; ONE REACT SPA, THREE ROLES</text>
+            <rect x="30" y="36" width="212" height="52" fill="none" stroke="currentColor" stroke-width="1.4"/>
+            <text x="46" y="59" font-size="13" font-weight="700">POS &middot; billing counter</text>
+            <text x="46" y="76" font-size="11" fill="#7A8098">keyboard-only, typed item codes</text>
+
+            <rect x="262" y="36" width="182" height="52" fill="none" stroke="currentColor" stroke-width="1.4"/>
+            <text x="278" y="59" font-size="13" font-weight="700">Back office</text>
+            <text x="278" y="76" font-size="11" fill="#7A8098">catalog, stock, purchase</text>
+
+            <rect x="464" y="36" width="182" height="52" fill="none" stroke="currentColor" stroke-width="1.4"/>
+            <text x="480" y="59" font-size="13" font-weight="700">Owner &middot; mobile web</text>
+            <text x="480" y="76" font-size="11" fill="#7A8098">day sales, dead stock</text>
+
+            <!-- peripherals -->
+            <rect x="30" y="112" width="112" height="54" fill="none" stroke="#2B3A80" stroke-dasharray="4 3"/>
+            <text x="86" y="128" font-size="10.5" text-anchor="middle" fill="#2B3A80" font-weight="600">IndexedDB</text>
+            <text x="86" y="142" font-size="10.5" text-anchor="middle" fill="#2B3A80">full catalog</text>
+            <text x="86" y="156" font-size="10.5" text-anchor="middle" fill="#2B3A80">+ bill outbox</text>
+            <rect x="154" y="112" width="88" height="54" fill="none" stroke="currentColor" stroke-dasharray="4 3"/>
+            <text x="198" y="128" font-size="10.5" text-anchor="middle">print agent</text>
+            <text x="198" y="142" font-size="10.5" text-anchor="middle">:9100</text>
+            <text x="198" y="156" font-size="10.5" text-anchor="middle">ESC/POS</text>
+            <line x1="86" y1="88" x2="86" y2="110" stroke="#2B3A80" marker-end="url(#a1)"/>
+            <text x="96" y="103" font-size="10" fill="#2B3A80">every code lookup, 0 ms</text>
+            <line x1="198" y1="88" x2="198" y2="110" stroke="currentColor" marker-end="url(#a1)"/>
+
+            <!-- nginx -->
+            <rect x="30" y="196" width="616" height="46" fill="none" stroke="currentColor" stroke-width="1.4"/>
+            <text x="46" y="224" font-size="12.5" font-weight="600">Nginx &middot; TLS, serves the React build, proxies /api</text>
+            <line x1="136" y1="166" x2="136" y2="194" stroke="currentColor" marker-end="url(#a1)"/>
+            <text x="146" y="184" font-size="10.5" fill="#7A8098">catalog delta sync &middot; replays queued bills</text>
+            <line x1="353" y1="88" x2="353" y2="194" stroke="currentColor" marker-end="url(#a1)"/>
+            <line x1="555" y1="88" x2="555" y2="194" stroke="currentColor" marker-end="url(#a1)"/>
+            <text x="363" y="146" font-size="10.5" fill="#7A8098">HTTPS &middot; REST /api/v1 &middot; JWT</text>
+
+            <!-- app -->
+            <rect x="30" y="282" width="616" height="128" fill="none" stroke="#2B3A80" stroke-width="1.8"/>
+            <text x="46" y="306" font-size="12.5" font-weight="700" fill="#2B3A80">Spring Boot 3 &middot; modular monolith &middot; single JVM</text>
+            <g font-size="10.5" fill="currentColor">
+              <rect x="46" y="318" width="88" height="26" fill="none" stroke="currentColor" opacity=".55"/><text x="90" y="335" text-anchor="middle">catalog</text>
+              <rect x="142" y="318" width="88" height="26" fill="none" stroke="currentColor" opacity=".55"/><text x="186" y="335" text-anchor="middle">inventory</text>
+              <rect x="238" y="318" width="88" height="26" fill="none" stroke="currentColor" opacity=".55"/><text x="282" y="335" text-anchor="middle">sales</text>
+              <rect x="334" y="318" width="88" height="26" fill="none" stroke="currentColor" opacity=".55"/><text x="378" y="335" text-anchor="middle">pricing</text>
+              <rect x="430" y="318" width="88" height="26" fill="none" stroke="currentColor" opacity=".55"/><text x="474" y="335" text-anchor="middle">purchase</text>
+              <rect x="46" y="352" width="88" height="26" fill="none" stroke="currentColor" opacity=".55"/><text x="90" y="369" text-anchor="middle">crm</text>
+              <rect x="142" y="352" width="88" height="26" fill="none" stroke="currentColor" opacity=".55"/><text x="186" y="369" text-anchor="middle">tax</text>
+              <rect x="238" y="352" width="88" height="26" fill="none" stroke="currentColor" opacity=".55"/><text x="282" y="369" text-anchor="middle">reports</text>
+              <rect x="334" y="352" width="88" height="26" fill="none" stroke="currentColor" opacity=".55"/><text x="378" y="369" text-anchor="middle">iam</text>
+              <rect x="430" y="352" width="88" height="26" fill="none" stroke="currentColor" opacity=".55"/><text x="474" y="369" text-anchor="middle">notify</text>
+            </g>
+            <text x="534" y="335" font-size="10" fill="#7A8098">one package</text>
+            <text x="534" y="348" font-size="10" fill="#7A8098">per module,</text>
+            <text x="534" y="361" font-size="10" fill="#7A8098">no cross-repo</text>
+            <text x="534" y="374" font-size="10" fill="#7A8098">access</text>
+            <line x1="338" y1="242" x2="338" y2="280" stroke="currentColor" marker-end="url(#a1)"/>
+
+            <!-- db -->
+            <rect x="30" y="450" width="290" height="46" fill="none" stroke="currentColor" stroke-width="1.4"/>
+            <text x="46" y="478" font-size="12.5" font-weight="600">PostgreSQL 16 &middot; single schema</text>
+            <rect x="340" y="450" width="306" height="46" fill="none" stroke="currentColor" stroke-width="1.4"/>
+            <text x="356" y="472" font-size="12.5" font-weight="600">Object storage</text>
+            <text x="356" y="487" font-size="10.5" fill="#7A8098">product images + nightly encrypted dumps</text>
+            <line x1="175" y1="410" x2="175" y2="448" stroke="currentColor" marker-end="url(#a1)"/>
+            <text x="185" y="433" font-size="10.5" fill="#7A8098">JDBC &middot; HikariCP</text>
+            <line x1="320" y1="473" x2="338" y2="473" stroke="currentColor" marker-end="url(#a1)"/>
+
+            <!-- externals -->
+            <text x="700" y="24" font-size="10" font-weight="700" letter-spacing="1.4" fill="#7A8098">THIRD PARTY</text>
+            <rect x="700" y="282" width="210" height="42" fill="none" stroke="currentColor" stroke-dasharray="5 3"/>
+            <text x="716" y="300" font-size="11.5" font-weight="600">WhatsApp / SMS gateway</text>
+            <text x="716" y="315" font-size="10.5" fill="#7A8098">bill link, OTP, offer blasts</text>
+            <rect x="700" y="336" width="210" height="42" fill="none" stroke="currentColor" stroke-dasharray="5 3"/>
+            <text x="716" y="354" font-size="11.5" font-weight="600">UPI QR / card terminal</text>
+            <text x="716" y="369" font-size="10.5" fill="#7A8098">reference captured, not routed</text>
+            <line x1="646" y1="303" x2="698" y2="303" stroke="currentColor" marker-end="url(#a1)"/>
+            <line x1="646" y1="357" x2="698" y2="357" stroke="currentColor" marker-end="url(#a1)"/>
+
+            <rect x="700" y="450" width="210" height="46" fill="none" stroke="#A2323F" stroke-dasharray="5 3"/>
+            <text x="716" y="470" font-size="11.5" font-weight="600" fill="#A2323F">Offsite backup</text>
+            <text x="716" y="485" font-size="10.5" fill="#A2323F">restore rehearsed monthly</text>
+            <line x1="646" y1="473" x2="698" y2="473" stroke="#A2323F" marker-end="url(#a2)"/>
+          </g>
+        </svg>
+      </div>
+      <figcaption>Three paths worth noticing: the whole catalog is <strong>cached in the browser</strong> so a typed code resolves without a network call, the POS keeps an <strong>outbox</strong> so billing survives an internet cut, and printing goes to a <strong>local agent</strong> rather than the server, because the printer sits on the counter and not in a datacentre.</figcaption>
+    </figure>
+
+    <h3>The client-side catalog is now load-bearing</h3>
+    <p>With a scanner you look up one exact barcode and a server round trip is fine. With a typed code you are searching — on every keystroke, while a customer waits. So push the entire catalog to the browser: a shop with 20,000 variants is a few megabytes of JSON, which IndexedDB holds comfortably. Search runs locally against an in-memory index, which means sub-millisecond results, no spinner, and no dependence on your broadband.</p>
+    <p>Sync it as a delta: <code>GET /catalog/sync?since=</code> returns rows changed since the client's watermark. Poll every few minutes and on window focus.</p>
+
+    <h3>Why the offline outbox is not optional</h3>
+    <p>Your broadband will go down, and it will go down on a Saturday evening. If billing stops, the shop stops. Queue completed bills in IndexedDB with a client-generated <code>idempotency_key</code>, print from local data, and sync when the connection returns. The server treats a replayed key as a no-op and returns the original bill.</p>
+    <p>The one thing that can't work offline is a live stock check across terminals — accept that. With one counter it doesn't matter; with three it means an oversell you reconcile at day close.</p>
+  </section>
+
+  <!-- ============ MODULES ============ -->
+  <section id="modules">
+    <h2><span class="tag">03 &mdash; Boundaries</span>Module map</h2>
+    <p>Ten modules. Each is a Java package with <code>api/</code> (the interface other modules call), <code>domain/</code>, <code>repository/</code> and <code>web/</code> inside it. Enforce the boundary with ArchUnit tests so it doesn't rot in month four.</p>
+
+    <div class="mods">
+      <div class="mod"><b>catalog</b><span>Products, variants, item codes, categories, brands, HSN, images, the client sync feed.</span><span class="pkg">shop.catalog</span></div>
+      <div class="mod"><b>inventory</b><span>Stock ledger, on-hand cache, adjustments, transfers, physical counts.</span><span class="pkg">shop.inventory</span></div>
+      <div class="mod"><b>pricing</b><span>Price lists, discount rules, coupons, the engine that resolves a cart to a total.</span><span class="pkg">shop.pricing</span></div>
+      <div class="mod"><b>sales</b><span>Invoices, payments, returns, exchanges, held bills, day close.</span><span class="pkg">shop.sales</span></div>
+      <div class="mod"><b>purchase</b><span>Purchase orders, goods receipt, supplier bills, purchase returns, payables.</span><span class="pkg">shop.purchase</span></div>
+      <div class="mod"><b>tax</b><span>Rate resolution by HSN and date, CGST/SGST/IGST split, GSTR-1 extract.</span><span class="pkg">shop.tax</span></div>
+      <div class="mod"><b>crm</b><span>Customers, loyalty tiers and points, store credit, gift cards, alteration jobs.</span><span class="pkg">shop.crm</span></div>
+      <div class="mod"><b>reports</b><span>Read-only projections. Owns no tables; queries views, never other modules' repos.</span><span class="pkg">shop.reports</span></div>
+      <div class="mod"><b>iam</b><span>Users, roles, permissions, JWT issue and refresh, audit log.</span><span class="pkg">shop.iam</span></div>
+      <div class="mod"><b>notify</b><span>WhatsApp and SMS dispatch, templates, delivery log, retry.</span><span class="pkg">shop.notify</span></div>
+    </div>
+
+    <div class="callout note">
+      <span class="lbl">The dependency rule</span>
+      <p><code>sales</code> may call <code>pricing</code>, <code>inventory</code>, <code>tax</code> and <code>crm</code>. Nothing may call <code>sales</code>. <code>reports</code> depends on everything and is depended on by nothing. If you find yourself wanting a cycle, you have put a field in the wrong module.</p>
+    </div>
+  </section>
+
+  <!-- ============ FEATURES ============ -->
+  <section id="features">
+    <h2><span class="tag">04 &mdash; Surface</span>Feature set</h2>
+    <p>Grouped by module, marked by phase. The phase numbers refer to <a href="#roadmap">Build order</a>.</p>
+
+    <div class="scroll">
+      <table class="tbl">
+        <caption>Catalog &amp; inventory</caption>
+        <thead><tr><th style="width:180px">Feature</th><th>What it does</th><th style="width:64px">Phase</th></tr></thead>
+        <tbody>
+          <tr><td>product + variant</td><td>One style, many sellable SKUs across size and colour. Bulk-create the whole grid in one screen.</td><td>1</td></tr>
+          <tr><td>item code scheme</td><td>Short, unique, typeable code per cloth type, auto-issued from a sequence. The shop's whole vocabulary.</td><td>1</td></tr>
+          <tr><td>price tags</td><td>Print garment tags carrying the code, size, colour and MRP in large readable type. No barcode symbology.</td><td>1</td></tr>
+          <tr><td>code &amp; name search</td><td>Type-ahead over the locally cached catalog: exact code, prefix, or fuzzy match on name and fabric.</td><td>1</td></tr>
+          <tr><td>category tree</td><td>Self-nesting: Men &rsaquo; Shirts &rsaquo; Formal. Drives reports and category-wide discounts.</td><td>1</td></tr>
+          <tr><td>uom handling</td><td>PCS for garments, MTR for fabric. Decimal quantities, metre-priced lines.</td><td>1</td></tr>
+          <tr><td>stock ledger</td><td>Append-only movement history. Every change traceable to a document and a user.</td><td>1</td></tr>
+          <tr><td>adjustments</td><td>Damage, theft, sample, found. Reason mandatory, manager approval above a threshold.</td><td>2</td></tr>
+          <tr><td>physical count</td><td>Printed count sheet in code order, entry screen keyed by code, variance report, one adjustment on close. Slower without a scanner &mdash; plan a closed-shop morning.</td><td>3</td></tr>
+          <tr><td>low stock &amp; reorder</td><td>Per-variant reorder level; a purchase suggestion list grouped by supplier.</td><td>2</td></tr>
+          <tr><td>ageing / dead stock</td><td>Days since last sale per variant. The single most useful report in apparel retail.</td><td>3</td></tr>
+          <tr><td>stock transfer</td><td>Shop floor &harr; godown, later store &harr; store, with in-transit state.</td><td>4</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="scroll">
+      <table class="tbl">
+        <caption>Billing &amp; sales</caption>
+        <thead><tr><th style="width:180px">Feature</th><th>What it does</th><th style="width:64px">Phase</th></tr></thead>
+        <tbody>
+          <tr><td>POS billing</td><td>Type a code, confirm the item, pick size and colour, all on the keyboard. No mouse for a normal bill.</td><td>1</td></tr>
+          <tr><td>variant picker</td><td>Size &times; colour grid with live stock in every cell; arrow keys and Enter, auto-selects when only one cell has stock.</td><td>1</td></tr>
+          <tr><td>quick-pick tiles</td><td>Pinned tiles for the twenty fastest movers. Most shops sell the same handful of things all day.</td><td>2</td></tr>
+          <tr><td>wrong-item correction</td><td>Undo a line before payment; after payment it becomes a credit note. Typing means typos &mdash; make fixing them cheap.</td><td>2</td></tr>
+          <tr><td>split payment</td><td>Cash + UPI + card on one bill; card and UPI store a reference, not card data.</td><td>1</td></tr>
+          <tr><td>GST invoice</td><td>Taxable value, CGST/SGST or IGST, HSN summary, round-off, amount in words.</td><td>1</td></tr>
+          <tr><td>thermal + A4 print</td><td>80&nbsp;mm receipt for walk-ins, A4 tax invoice when the buyer gives a GSTIN.</td><td>1</td></tr>
+          <tr><td>hold / recall bill</td><td>Park a cart while the customer goes back to the trial room; recall by token.</td><td>2</td></tr>
+          <tr><td>returns &amp; credit note</td><td>Return against an original bill line, restock or scrap, refund or store credit.</td><td>2</td></tr>
+          <tr><td>exchange</td><td>Return plus new sale linked by one exchange group; only the difference is settled.</td><td>2</td></tr>
+          <tr><td>salesperson tagging</td><td>Attribute each line to a staff member for commission and performance.</td><td>2</td></tr>
+          <tr><td>day close</td><td>Opening cash, expected vs counted, variance, locks the register session.</td><td>2</td></tr>
+          <tr><td>offline billing</td><td>Outbox queue, local print, replay on reconnect with idempotency.</td><td>3</td></tr>
+          <tr><td>bill on WhatsApp</td><td>Send a PDF link instead of a paper bill; also the cheapest way to collect phone numbers.</td><td>3</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="scroll">
+      <table class="tbl">
+        <caption>Purchase, customers, money</caption>
+        <thead><tr><th style="width:180px">Feature</th><th>What it does</th><th style="width:64px">Phase</th></tr></thead>
+        <tbody>
+          <tr><td>purchase order</td><td>Raise against a supplier, track pending vs received quantity per line.</td><td>2</td></tr>
+          <tr><td>goods receipt (GRN)</td><td>Receive against a PO or directly; landed cost per unit; stock in on post.</td><td>2</td></tr>
+          <tr><td>supplier ledger</td><td>Bills, payments, outstanding, ageing buckets. Tells you what you owe on the 5th.</td><td>2</td></tr>
+          <tr><td>purchase return</td><td>Debit note to supplier for damaged or unsold returnable stock.</td><td>3</td></tr>
+          <tr><td>customer profile</td><td>Phone as the identity, purchase history, sizes bought, festival and birthday dates.</td><td>2</td></tr>
+          <tr><td>loyalty points</td><td>Earn per rupee with a tier multiplier, redeem as a discount, points expire.</td><td>3</td></tr>
+          <tr><td>store credit</td><td>Refund-as-credit ledger; used at checkout like a payment mode.</td><td>3</td></tr>
+          <tr><td>gift cards</td><td>Sell, top up, redeem, check balance. Popular for wedding-season gifting.</td><td>4</td></tr>
+          <tr><td>alteration jobs</td><td>Measurements, tailor, promised date, charge, ready-for-pickup SMS. Cloth-shop specific.</td><td>3</td></tr>
+          <tr><td>expenses</td><td>Rent, salary, electricity, tea. Without these the profit report is fiction.</td><td>2</td></tr>
+          <tr><td>GSTR-1 extract</td><td>B2C summary and B2B invoice-wise CSV for your accountant.</td><td>3</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4>Reports worth building (and the order to build them)</h4>
+    <div class="chips">
+      <span class="chip k">Day sales &amp; cash</span><span class="chip k">Item-wise sales</span><span class="chip k">Stock on hand &amp; value</span>
+      <span class="chip">Low stock / reorder</span><span class="chip">Dead stock by ageing</span><span class="chip">Category &amp; brand mix</span>
+      <span class="chip">Discount given vs margin</span><span class="chip">Salesperson performance</span><span class="chip">Returns rate by product</span>
+      <span class="chip">Supplier outstanding</span><span class="chip">Size-curve sold vs stocked</span><span class="chip">GST summary</span>
+    </div>
+    <p>The <strong>size curve</strong> report is the one shopkeepers underrate: it shows that you sold out of M and L in three weeks and are still sitting on every XXL you bought. It changes what you order next season.</p>
+  </section>
+
+  <!-- ============ VARIANTS ============ -->
+  <section id="variants">
+    <h2><span class="tag">05 &mdash; Core model</span>The variant model</h2>
+    <p>This is the decision that separates a clothing system from a generic inventory system, and getting it wrong is the most expensive mistake available to you. A "shirt" is not a thing you stock. A <strong>blue Oxford shirt in size M</strong> is a thing you stock — it has its own count and its own price, and it can sell out while the same shirt in L sits on the shelf.</p>
+    <p>So: <code>product</code> holds what is shared (name, category, HSN, tax rate, <strong>item code</strong>, images). <code>product_variant</code> holds what varies (size, colour, cost, price, stock). Stock <em>never</em> hangs off <code>product</code>.</p>
+    <p>Your codes sit at the <em>product</em> level: one code for "cotton Oxford shirt", not nine. That keeps the code short enough to type and short enough to read off a tag — and it makes the size-and-colour choice an explicit step at the counter, which is where a person is looking at the garment anyway.</p>
+
+    <figure>
+      <div class="fbox">
+        <svg class="dia" viewBox="0 0 900 380" role="img" aria-label="One product record carrying a single typed item code explodes into a nine-cell grid of size-by-colour variants, each with its own price and its own row in inventory_stock.">
+          <defs>
+            <marker id="b1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+          <g font-family="Archivo, sans-serif" fill="currentColor">
+            <!-- product -->
+            <text x="24" y="26" font-size="10" font-weight="700" letter-spacing="1.4" fill="#7A8098">PRODUCT &mdash; THE STYLE</text>
+            <rect x="24" y="96" width="196" height="152" fill="none" stroke="#2B3A80" stroke-width="1.8"/>
+            <g font-family="IBM Plex Mono, monospace" font-size="11">
+              <text x="40" y="118" font-size="9.5" fill="#7A8098">item_code</text>
+              <text x="40" y="138" font-size="16" font-weight="600" fill="#2B3A80">SH104</text>
+              <text x="40" y="160" fill="currentColor">Oxford Shirt</text>
+              <text x="40" y="180" fill="#7A8098">hsn 6205</text>
+              <text x="40" y="196" fill="#7A8098">uom PCS</text>
+              <text x="40" y="212" fill="#7A8098">season AW25</text>
+              <text x="40" y="228" fill="#7A8098">brand Raymond</text>
+            </g>
+            <text x="24" y="272" font-size="11" fill="#7A8098">1 row</text>
+
+            <line x1="226" y1="172" x2="270" y2="172" stroke="currentColor" marker-end="url(#b1)"/>
+            <text x="248" y="163" font-size="10.5" text-anchor="middle" fill="#7A8098">explodes</text>
+
+            <!-- grid -->
+            <text x="290" y="26" font-size="10" font-weight="700" letter-spacing="1.4" fill="#7A8098">PRODUCT_VARIANT &mdash; THE SKUS YOU ACTUALLY SELL</text>
+            <g font-size="11" fill="#7A8098" font-family="IBM Plex Mono, monospace">
+              <text x="330" y="88" text-anchor="middle">S</text>
+              <text x="412" y="88" text-anchor="middle">M</text>
+              <text x="494" y="88" text-anchor="middle">L</text>
+              <text x="284" y="126" text-anchor="end">White</text>
+              <text x="284" y="186" text-anchor="end">Indigo</text>
+              <text x="284" y="246" text-anchor="end">Black</text>
+            </g>
+            <g font-family="IBM Plex Mono, monospace" font-size="13" text-anchor="middle">
+              <rect x="294" y="100" width="72" height="40" fill="none" stroke="currentColor" opacity=".55"/><text x="330" y="126" fill="currentColor">8</text>
+              <rect x="376" y="100" width="72" height="40" fill="none" stroke="currentColor" opacity=".55"/><text x="412" y="126" fill="currentColor">14</text>
+              <rect x="458" y="100" width="72" height="40" fill="none" stroke="currentColor" opacity=".55"/><text x="494" y="126" fill="currentColor">11</text>
+
+              <rect x="294" y="160" width="72" height="40" fill="none" stroke="currentColor" opacity=".55"/><text x="330" y="186" fill="currentColor">6</text>
+              <rect x="376" y="160" width="72" height="40" fill="none" stroke="#2B3A80" stroke-width="2"/><text x="412" y="186" fill="#2B3A80" font-weight="600">12</text>
+              <rect x="458" y="160" width="72" height="40" fill="none" stroke="currentColor" opacity=".55"/><text x="494" y="186" fill="currentColor">9</text>
+
+              <rect x="294" y="220" width="72" height="40" fill="none" stroke="currentColor" opacity=".55"/><text x="330" y="246" fill="currentColor">4</text>
+              <rect x="376" y="220" width="72" height="40" fill="none" stroke="currentColor" opacity=".55"/><text x="412" y="246" fill="currentColor">7</text>
+              <rect x="458" y="220" width="72" height="40" fill="none" stroke="#A2323F" stroke-width="2"/><text x="494" y="246" fill="#A2323F" font-weight="600">1</text>
+            </g>
+            <text x="294" y="288" font-size="11" fill="#7A8098" font-family="IBM Plex Mono, monospace">9 rows &middot; 9 stock counts &middot; 9 prices &middot; 1 code</text>
+            <text x="458" y="306" font-size="10.5" fill="#A2323F">below reorder level</text>
+
+            <!-- annotated cell callout -->
+            <line x1="412" y1="160" x2="412" y2="330" stroke="#2B3A80" stroke-dasharray="3 3"/>
+            <line x1="412" y1="330" x2="150" y2="330" stroke="#2B3A80" stroke-dasharray="3 3"/>
+            <text x="144" y="326" font-size="11" text-anchor="end" fill="#2B3A80" font-family="IBM Plex Mono, monospace">sku SH104-IND-M &nbsp;(internal)</text>
+            <text x="144" y="342" font-size="11" text-anchor="end" fill="#7A8098" font-family="IBM Plex Mono, monospace">tag reads: SH104 &middot; Indigo &middot; M</text>
+            <text x="144" y="358" font-size="11" text-anchor="end" fill="#7A8098" font-family="IBM Plex Mono, monospace">mrp 1899.00 &middot; cost 940.00</text>
+
+            <!-- stock -->
+            <line x1="546" y1="180" x2="596" y2="180" stroke="currentColor" marker-end="url(#b1)"/>
+            <text x="620" y="26" font-size="10" font-weight="700" letter-spacing="1.4" fill="#7A8098">STOCK</text>
+            <rect x="600" y="120" width="276" height="120" fill="none" stroke="currentColor" stroke-width="1.4"/>
+            <text x="616" y="146" font-size="12.5" font-weight="700" font-family="IBM Plex Mono, monospace">inventory_stock</text>
+            <text x="616" y="170" font-size="11.5">one row per</text>
+            <text x="616" y="188" font-size="11.5" font-family="IBM Plex Mono, monospace" fill="#2B3A80">(variant_id, location_id)</text>
+            <text x="616" y="212" font-size="11" fill="#7A8098">unique constraint on the pair &mdash;</text>
+            <text x="616" y="228" font-size="11" fill="#7A8098">it is the only thing stopping</text>
+            <text x="616" y="244" font-size="11" fill="#7A8098">duplicate stock rows</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption>One style becomes nine sellable SKUs. Price, cost and stock count all live at the variant level; only shared attributes &mdash; including the one <strong>item code the cashier types</strong> &mdash; stay on the product.</figcaption>
+    </figure>
+
+    <div class="callout">
+      <span class="lbl">Don't build an EAV attribute system</span>
+      <p>You will be tempted to build generic <code>attribute</code> / <code>attribute_value</code> tables so you can add "sleeve length" later without a migration. For a shop selling clothes, <strong>plain <code>size</code> and <code>colour</code> columns on the variant</strong> are the right call: every query stays readable, indexes work, and the size-curve report is a <code>GROUP BY</code> instead of three joins. Add a <code>JSONB attrs</code> column for the rare extra. Revisit EAV only if you start selling something genuinely different.</p>
+    </div>
+  </section>
+
+  <!-- ============ CODES ============ -->
+  <section id="codes">
+    <h2><span class="tag">06 &mdash; Counter</span>Item codes &amp; entry</h2>
+    <p>With no scanner, the item code <em>is</em> the interface. Your staff will type it a few hundred times a day, read it off a tag in bad light, and shout it across the shop. Design it for that, not for a database.</p>
+
+    <h3>The code scheme</h3>
+    <p>Use a <strong>letter prefix plus a numeric serial</strong>: <code>SH104</code>, <code>SR038</code>, <code>FB211</code>. The prefix comes from the category and the serial is auto-issued per prefix, so codes stay short, sort sensibly, and tell a human what they're looking at before the screen does.</p>
+
+    <div class="scroll">
+      <table class="tbl">
+        <caption>Prefix scheme &mdash; adapt to what you actually stock</caption>
+        <thead><tr><th style="width:110px">Prefix</th><th>Category</th><th style="width:180px">Example</th></tr></thead>
+        <tbody>
+          <tr><td>SH</td><td>Shirts</td><td>SH104 &mdash; cotton Oxford, full sleeve</td></tr>
+          <tr><td>TS</td><td>T-shirts</td><td>TS027 &mdash; round neck, printed</td></tr>
+          <tr><td>TR</td><td>Trousers</td><td>TR058 &mdash; formal, poly-viscose</td></tr>
+          <tr><td>KU</td><td>Kurtis</td><td>KU312 &mdash; rayon, A-line</td></tr>
+          <tr><td>SR</td><td>Sarees</td><td>SR038 &mdash; Kanjivaram silk</td></tr>
+          <tr><td>DM</td><td>Dress material</td><td>DM145 &mdash; unstitched 3-piece</td></tr>
+          <tr><td>FB</td><td>Fabric by the metre</td><td>FB211 &mdash; suiting, 58" width</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4>Five rules for the scheme</h4>
+    <ol>
+      <li><strong>Four to six characters, hard limit.</strong> Every extra character is a typo per hundred bills. If the code needs a seventh character your prefixes are too granular.</li>
+      <li><strong>Letters only in the prefix, digits only in the serial.</strong> This is what kills the classic ambiguities — nobody wonders whether <code>SH104</code> has a letter O or a zero, because the digit half can't contain letters.</li>
+      <li><strong>Normalise on lookup.</strong> Uppercase, strip spaces and hyphens, then match. Store the normalised form in <code>code_norm</code> and index that, not the display form.</li>
+      <li><strong>Codes are immutable and never reused.</strong> Once a code is printed on a tag it is out of your control. Retiring <code>SH104</code> and reissuing it next season is how last year's price ends up on this year's shirt.</li>
+      <li><strong>Auto-issue, never hand-type.</strong> The serial comes from <code>number_series</code> keyed by prefix. Letting staff invent codes guarantees duplicates and gaps.</li>
+    </ol>
+
+    <h3>What happens when the cashier types</h3>
+
+    <figure>
+      <div class="fbox">
+        <svg class="dia" viewBox="0 0 720 470" role="img" aria-label="A typed code is resolved against the locally cached catalog into one of three outcomes: an item code match opens the size and colour picker, no match falls back to a fuzzy name list, and an optional variant code skips straight to the bill line.">
+          <defs>
+            <marker id="e1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+          <g font-family="Archivo, sans-serif" fill="currentColor">
+
+            <rect x="200" y="16" width="320" height="50" fill="none" stroke="currentColor" stroke-width="1.4"/>
+            <text x="360" y="36" font-size="10.5" text-anchor="middle" fill="#7A8098">one entry box, always focused</text>
+            <text x="360" y="56" font-size="14" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-weight="600" fill="#2B3A80">SH104</text>
+            <text x="466" y="56" font-size="11" text-anchor="middle" fill="#7A8098">or &ldquo;oxfor&rdquo;</text>
+
+            <line x1="360" y1="66" x2="360" y2="80" stroke="currentColor" marker-end="url(#e1)"/>
+
+            <rect x="200" y="82" width="320" height="50" fill="none" stroke="#2B3A80" stroke-width="1.8"/>
+            <text x="360" y="103" font-size="12.5" text-anchor="middle" font-weight="700" fill="#2B3A80">Local catalog index</text>
+            <text x="360" y="121" font-size="10.5" text-anchor="middle" fill="#7A8098">whole catalog in IndexedDB &middot; no network &middot; sub-millisecond</text>
+
+            <polyline points="360,132 360,154 120,154 120,172" fill="none" stroke="currentColor" marker-end="url(#e1)"/>
+            <line x1="360" y1="132" x2="360" y2="172" stroke="currentColor" marker-end="url(#e1)"/>
+            <polyline points="360,132 360,154 600,154 600,172" fill="none" stroke="currentColor" marker-end="url(#e1)"/>
+
+            <rect x="15" y="174" width="210" height="70" fill="none" stroke="currentColor" stroke-width="1.4"/>
+            <text x="31" y="196" font-size="12" font-weight="600">exact item_code</text>
+            <text x="31" y="214" font-size="10.5" fill="#7A8098">&rarr; one style, nine SKUs</text>
+            <text x="31" y="231" font-size="10.5" fill="#3F6B4B">the normal case</text>
+
+            <rect x="255" y="174" width="210" height="70" fill="none" stroke="currentColor" stroke-width="1.4"/>
+            <text x="271" y="196" font-size="12" font-weight="600">no exact hit</text>
+            <text x="271" y="214" font-size="10.5" fill="#7A8098">&rarr; fuzzy list by name,</text>
+            <text x="271" y="231" font-size="10.5" fill="#7A8098">fabric or brand</text>
+
+            <rect x="495" y="174" width="210" height="70" fill="none" stroke="currentColor" stroke-dasharray="5 3"/>
+            <text x="511" y="196" font-size="12" font-weight="600">exact variant_code</text>
+            <text x="511" y="214" font-size="10.5" fill="#7A8098">&rarr; already one SKU</text>
+            <text x="511" y="231" font-size="10.5" fill="#7A8098">optional scheme</text>
+
+            <line x1="120" y1="244" x2="120" y2="284" stroke="currentColor" marker-end="url(#e1)"/>
+            <line x1="360" y1="244" x2="360" y2="284" stroke="currentColor" marker-end="url(#e1)"/>
+            <text x="368" y="268" font-size="10" fill="#7A8098">pick one</text>
+
+            <rect x="15" y="286" width="450" height="72" fill="none" stroke="#2B3A80" stroke-width="1.8"/>
+            <text x="31" y="308" font-size="12.5" font-weight="700" fill="#2B3A80">Size &times; colour picker</text>
+            <text x="31" y="326" font-size="10.5" fill="#7A8098">live stock in every cell &middot; arrow keys and Enter</text>
+            <text x="31" y="344" font-size="10.5" fill="#7A8098">auto-selects when only one cell has stock</text>
+
+            <line x1="600" y1="244" x2="600" y2="386" stroke="currentColor" stroke-dasharray="5 3" marker-end="url(#e1)"/>
+            <text x="610" y="306" font-size="10" fill="#7A8098">skips</text>
+            <text x="610" y="319" font-size="10" fill="#7A8098">the picker</text>
+
+            <line x1="240" y1="358" x2="240" y2="386" stroke="currentColor" marker-end="url(#e1)"/>
+
+            <rect x="15" y="388" width="690" height="66" fill="none" stroke="currentColor" stroke-width="1.4"/>
+            <text x="31" y="411" font-size="12.5" font-weight="700">Line added to the bill</text>
+            <text x="31" y="430" font-size="10.5" fill="#A2323F">name, colour, size and price shown large &mdash; the only defence against a typo</text>
+            <text x="31" y="446" font-size="10.5" fill="#7A8098">one keystroke removes the line if it's wrong</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption>Three resolution paths through one entry box. The middle path is why the catalog must be cached client-side: a fuzzy search that hits the network on every keystroke is unusable at a counter.</figcaption>
+    </figure>
+
+    <h3>Accuracy is the cost you're paying</h3>
+    <p>Be clear-eyed about the trade. A scan is roughly one second and cannot select the wrong item. Typing a code is three to five seconds and introduces an error class that scanning simply doesn't have: the cashier bills <code>SH104</code> when the tag said <code>SH140</code>, the customer pays a plausible-looking price, and your stock is now wrong on two products at once. Nobody notices for weeks.</p>
+    <p>Three compensating controls, all cheap:</p>
+    <ul>
+      <li><strong>Mandatory visual confirmation.</strong> The line does not commit until the product name, colour, size and price are on screen at a size readable from standing. This alone catches most transpositions, because <code>SH140</code> renders as "Silk Saree" and the cashier is holding a shirt.</li>
+      <li><strong>Stock-aware picker.</strong> Out-of-stock cells are visible but unselectable. Billing a variant you have zero of is usually a sign you typed the wrong code.</li>
+      <li><strong>Weekly cycle counts, from Phase 2.</strong> Count one category a week rather than waiting for an annual stock take. With scanning you can defer this; without it, you can't.</li>
+    </ul>
+
+    <div class="callout note">
+      <span class="lbl">Design the input so a scanner would just work</span>
+      <p>Keep a nullable <code>barcode</code> column on the variant and treat the entry box as <em>"accepts a code, however it arrives"</em> rather than "a text field a person types into". A USB barcode scanner is a keyboard-wedge device — it types the code and presses Enter, no drivers and no integration. If you ever decide the accuracy is worth ₹1,200 of hardware, it drops into this design with no schema change and no new screen. Costs you nothing to leave the door open.</p>
+    </div>
+  </section>
+
+  <!-- ============ LEDGER ============ -->
+  <section id="ledger">
+    <h2><span class="tag">07 &mdash; Core model</span>Stock as a ledger</h2>
+    <p>The second modelling decision. Never store stock as a number you update. Store it as an <strong>append-only ledger of movements</strong>, and keep the current quantity as a derived cache.</p>
+    <p>The reason is practical, not academic. Sooner or later a count will be wrong, and the only question that matters is <em>"how did it get to 37?"</em> A ledger answers it in one query. A mutable integer answers nothing.</p>
+
+    <figure>
+      <div class="fbox">
+        <svg class="dia" viewBox="0 0 880 320" role="img" aria-label="Five append-only stock ledger rows sum to the cached on-hand quantity of 37; a direct UPDATE on the cache is marked forbidden because it leaves no audit trail.">
+          <defs>
+            <marker id="c1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+            </marker>
+            <marker id="c2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#A2323F"/>
+            </marker>
+          </defs>
+          <g font-family="IBM Plex Mono, monospace" fill="currentColor">
+            <text x="24" y="22" font-family="Archivo, sans-serif" font-size="10" font-weight="700" letter-spacing="1.4" fill="#7A8098">STOCK_LEDGER &mdash; APPEND ONLY, NEVER UPDATED</text>
+
+            <g font-size="11.5">
+              <rect x="24" y="36" width="360" height="30" fill="none" stroke="currentColor" opacity=".5"/>
+              <text x="38" y="56">GRN-1042</text><text x="196" y="56" fill="#7A8098">goods receipt</text><text x="368" y="56" text-anchor="end" fill="#3F6B4B">+40</text>
+
+              <rect x="24" y="70" width="360" height="30" fill="none" stroke="currentColor" opacity=".5"/>
+              <text x="38" y="90">INV-25-0817</text><text x="196" y="90" fill="#7A8098">sale</text><text x="368" y="90" text-anchor="end" fill="#A2323F">&minus;2</text>
+
+              <rect x="24" y="104" width="360" height="30" fill="none" stroke="currentColor" opacity=".5"/>
+              <text x="38" y="124">INV-25-0863</text><text x="196" y="124" fill="#7A8098">sale</text><text x="368" y="124" text-anchor="end" fill="#A2323F">&minus;1</text>
+
+              <rect x="24" y="138" width="360" height="30" fill="none" stroke="currentColor" opacity=".5"/>
+              <text x="38" y="158">CN-25-0044</text><text x="196" y="158" fill="#7A8098">return, restocked</text><text x="368" y="158" text-anchor="end" fill="#3F6B4B">+1</text>
+
+              <rect x="24" y="172" width="360" height="30" fill="none" stroke="currentColor" opacity=".5"/>
+              <text x="38" y="192">ADJ-0009</text><text x="196" y="192" fill="#7A8098">damage, staff Ravi</text><text x="368" y="192" text-anchor="end" fill="#A2323F">&minus;1</text>
+            </g>
+
+            <line x1="392" y1="119" x2="470" y2="119" stroke="currentColor" marker-end="url(#c1)"/>
+            <text x="431" y="110" font-size="10.5" text-anchor="middle" fill="#7A8098" font-family="Archivo, sans-serif">projects</text>
+
+            <rect x="478" y="80" width="300" height="78" fill="none" stroke="#2B3A80" stroke-width="1.8"/>
+            <text x="496" y="106" font-size="12.5" font-weight="600" fill="#2B3A80">inventory_stock</text>
+            <text x="496" y="128" font-size="12">qty_on_hand = 37</text>
+            <text x="496" y="147" font-size="10.5" fill="#7A8098" font-family="Archivo, sans-serif">a cache. rebuildable from the ledger.</text>
+
+            <!-- forbidden path -->
+            <rect x="24" y="242" width="360" height="52" fill="none" stroke="#A2323F" stroke-dasharray="5 4"/>
+            <text x="38" y="266" font-size="11.5" fill="#A2323F">UPDATE inventory_stock</text>
+            <text x="38" y="284" font-size="11.5" fill="#A2323F">&nbsp;&nbsp;SET qty_on_hand = 37</text>
+            <line x1="392" y1="268" x2="470" y2="268" stroke="#A2323F" stroke-dasharray="5 4" marker-end="url(#c2)"/>
+            <text x="478" y="258" font-size="11.5" font-weight="600" fill="#A2323F" font-family="Archivo, sans-serif">Never do this directly.</text>
+            <text x="478" y="276" font-size="11" fill="#A2323F" font-family="Archivo, sans-serif">The number is now unexplainable</text>
+            <text x="478" y="292" font-size="11" fill="#A2323F" font-family="Archivo, sans-serif">and shrinkage becomes invisible.</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption>Every quantity change writes a ledger row inside the same transaction as the document that caused it. The on-hand figure is a projection you can rebuild from scratch at any time.</figcaption>
+    </figure>
+
+    <p>In code this is one <code>InventoryService.post(movement)</code> method that inserts the ledger row and upserts the cache. Make it the <em>only</em> way stock changes anywhere in the codebase, and unit-test that invariant.</p>
+  </section>
+
+  <!-- ============ TABLES ============ -->
+  <section id="tables">
+    <h2><span class="tag">08 &mdash; Data model</span>Table catalog</h2>
+    <p>Forty-eight tables across nine groups. Not all of them are Phase 1 — see <a href="#roadmap">Build order</a> — but the shape should be decided now so you aren't migrating live billing data later.</p>
+
+    <div class="scroll">
+      <table class="tbl">
+        <caption>Group A &mdash; Organisation &amp; access &middot; 7 tables</caption>
+        <thead><tr><th style="width:180px">Table</th><th>Purpose</th><th style="width:34%">Notable columns</th></tr></thead>
+        <tbody>
+          <tr><td>store</td><td>The shop itself. Multi-store hook.</td><td>name, gstin, address, state_code, fy_start_month, invoice_prefix</td></tr>
+          <tr><td>location</td><td>Stock-holding places within a store.</td><td>store_id, name, type (FLOOR / GODOWN / TRANSIT)</td></tr>
+          <tr><td>app_user</td><td>Staff logins.</td><td>store_id, name, phone, password_hash, status, last_login_at</td></tr>
+          <tr><td>role</td><td>OWNER, MANAGER, CASHIER, STOCK_CLERK.</td><td>code, name, is_system</td></tr>
+          <tr><td>permission</td><td>Fine-grained rights.</td><td>code (SALE_VOID, DISCOUNT_OVERRIDE, COST_VIEW)</td></tr>
+          <tr><td>user_role</td><td>Join.</td><td>user_id, role_id</td></tr>
+          <tr><td>role_permission</td><td>Join.</td><td>role_id, permission_id</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="scroll">
+      <table class="tbl">
+        <caption>Group B &mdash; Catalog &middot; 8 tables</caption>
+        <thead><tr><th style="width:180px">Table</th><th>Purpose</th><th style="width:34%">Notable columns</th></tr></thead>
+        <tbody>
+          <tr><td>category</td><td>Self-nesting tree.</td><td>parent_id, name, slug, sort_order, path</td></tr>
+          <tr><td>brand</td><td>Raymond, Peter England, in-house.</td><td>name, logo_url</td></tr>
+          <tr><td>supplier</td><td>Who you buy from.</td><td>name, gstin, state_code, phone, address, payment_terms_days</td></tr>
+          <tr><td>product</td><td>The style. Shared attributes, and <strong>the code the cashier types.</strong></td><td>item_code&nbsp;UNIQUE, code_norm&nbsp;UNIQUE, code_prefix, name, category_id, brand_id, hsn_code, tax_rate_id, uom, gender, season, fabric, care_instructions, search_text, status</td></tr>
+          <tr><td>product_variant</td><td>The sellable SKU. <strong>Stock hangs here.</strong></td><td>product_id, sku, variant_code NULL UNIQUE, barcode NULL UNIQUE <em>(reserved for a future scanner)</em>, size, colour, colour_hex, mrp, cost_price, selling_price, reorder_level, attrs&nbsp;JSONB, status</td></tr>
+          <tr><td>product_image</td><td>Photos, ordered. Matters more without a scanner &mdash; the picker shows them.</td><td>product_id, variant_id NULL, url, sort_order, is_primary</td></tr>
+          <tr><td>size_chart</td><td>Ordered size sets per category, so S&lt;M&lt;L sorts correctly in the picker.</td><td>category_id, label, sort_order</td></tr>
+          <tr><td>pos_quick_pick</td><td>Pinned tiles for the fastest movers, so the top sellers need no typing at all.</td><td>store_id, product_id, sort_order, pinned_by</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="scroll">
+      <table class="tbl">
+        <caption>Group C &mdash; Inventory &middot; 7 tables</caption>
+        <thead><tr><th style="width:180px">Table</th><th>Purpose</th><th style="width:34%">Notable columns</th></tr></thead>
+        <tbody>
+          <tr><td>inventory_stock</td><td>Cached on-hand. Unique on (variant, location).</td><td>variant_id, location_id, qty_on_hand, qty_reserved, version</td></tr>
+          <tr><td>stock_ledger</td><td><strong>Source of truth.</strong> Append only.</td><td>variant_id, location_id, movement_type, qty_delta, balance_after, ref_doc_type, ref_doc_id, unit_cost, user_id, created_at</td></tr>
+          <tr><td>stock_adjustment</td><td>Header for a manual correction.</td><td>location_id, reason_code, note, status, approved_by, posted_at</td></tr>
+          <tr><td>stock_adjustment_item</td><td>Lines.</td><td>adjustment_id, variant_id, qty_delta, unit_cost</td></tr>
+          <tr><td>stock_transfer</td><td>Between locations, with in-transit.</td><td>from_location_id, to_location_id, status, dispatched_at, received_at</td></tr>
+          <tr><td>stock_transfer_item</td><td>Lines.</td><td>transfer_id, variant_id, qty_sent, qty_received</td></tr>
+          <tr><td>stock_take</td><td>Physical count session + variance.</td><td>location_id, status, counted_by, started_at, closed_at, adjustment_id</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="scroll">
+      <table class="tbl">
+        <caption>Group D &mdash; Purchase &middot; 6 tables</caption>
+        <thead><tr><th style="width:180px">Table</th><th>Purpose</th><th style="width:34%">Notable columns</th></tr></thead>
+        <tbody>
+          <tr><td>purchase_order</td><td>What you ordered.</td><td>supplier_id, po_no, order_date, expected_date, status, total</td></tr>
+          <tr><td>purchase_order_item</td><td>Lines with pending tracking.</td><td>po_id, variant_id, qty_ordered, qty_received, unit_cost</td></tr>
+          <tr><td>goods_receipt</td><td>GRN. Posting it moves stock in.</td><td>supplier_id, po_id NULL, grn_no, received_date, invoice_ref, status</td></tr>
+          <tr><td>goods_receipt_item</td><td>Actual received quantity and landed cost.</td><td>grn_id, variant_id, qty, unit_cost, tax_amount, landed_cost</td></tr>
+          <tr><td>supplier_bill</td><td>Payables ledger.</td><td>supplier_id, bill_no, bill_date, due_date, total, paid_amount, status</td></tr>
+          <tr><td>supplier_payment</td><td>What you paid and when.</td><td>supplier_id, bill_id NULL, amount, mode, txn_ref, paid_on</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="scroll">
+      <table class="tbl">
+        <caption>Group E &mdash; Sales &middot; 7 tables</caption>
+        <thead><tr><th style="width:180px">Table</th><th>Purpose</th><th style="width:34%">Notable columns</th></tr></thead>
+        <tbody>
+          <tr><td>invoice</td><td>The bill.</td><td>store_id, invoice_no, series, fy, customer_id NULL, salesperson_id, invoice_date, subtotal, discount_total, taxable_value, cgst, sgst, igst, round_off, grand_total, paid_total, status, idempotency_key&nbsp;UNIQUE</td></tr>
+          <tr><td>invoice_item</td><td>Lines. <strong>Snapshots everything.</strong></td><td>invoice_id, variant_id, sku_snapshot, name_snapshot, hsn, qty, uom, mrp, unit_price, discount_amount, taxable_value, tax_rate, cgst, sgst, line_total, salesperson_id, cost_at_sale</td></tr>
+          <tr><td>payment</td><td>Split tenders.</td><td>invoice_id, mode, amount, txn_ref, card_last4, status, received_at</td></tr>
+          <tr><td>credit_note</td><td>Return header.</td><td>original_invoice_id, cn_no, reason, refund_mode, total, exchange_group_id NULL</td></tr>
+          <tr><td>credit_note_item</td><td>Return lines linked to the original.</td><td>cn_id, invoice_item_id, variant_id, qty, amount, restock&nbsp;BOOL, condition</td></tr>
+          <tr><td>held_bill</td><td>Parked carts.</td><td>token, store_id, user_id, cart_json, held_at, expires_at</td></tr>
+          <tr><td>register_session</td><td>Day close per till.</td><td>store_id, user_id, opening_cash, expected_cash, counted_cash, variance, opened_at, closed_at</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="scroll">
+      <table class="tbl">
+        <caption>Group F &mdash; Pricing &amp; discounts &middot; 5 tables</caption>
+        <thead><tr><th style="width:180px">Table</th><th>Purpose</th><th style="width:34%">Notable columns</th></tr></thead>
+        <tbody>
+          <tr><td>discount_rule</td><td>One row per promotion.</td><td>name, rule_type, scope, value, max_discount_amount, min_bill_amount, priority, stackable, valid_from, valid_to, active</td></tr>
+          <tr><td>discount_condition</td><td>What the rule applies to.</td><td>rule_id, dimension (CATEGORY / BRAND / VARIANT / SEASON / TIER / WEEKDAY), operator, values&nbsp;JSONB</td></tr>
+          <tr><td>coupon</td><td>Codes you hand out.</td><td>code&nbsp;UNIQUE, rule_id, usage_limit, used_count, per_customer_limit, valid_from, valid_to</td></tr>
+          <tr><td>coupon_redemption</td><td>Enforces the limits.</td><td>coupon_id, invoice_id, customer_id, redeemed_at</td></tr>
+          <tr><td>applied_discount</td><td>Audit of what actually fired on each bill.</td><td>invoice_id, invoice_item_id NULL, rule_id NULL, coupon_id NULL, source (RULE / COUPON / MANUAL), amount, approved_by</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="scroll">
+      <table class="tbl">
+        <caption>Group G &mdash; Customers &amp; loyalty &middot; 7 tables</caption>
+        <thead><tr><th style="width:180px">Table</th><th>Purpose</th><th style="width:34%">Notable columns</th></tr></thead>
+        <tbody>
+          <tr><td>customer</td><td>Phone is the identity.</td><td>phone&nbsp;UNIQUE, name, email, gender, dob, anniversary, gstin NULL, address, tier_id, loyalty_points, lifetime_spend, last_visit_at</td></tr>
+          <tr><td>loyalty_tier</td><td>Silver / Gold / Platinum.</td><td>name, min_lifetime_spend, points_multiplier, standing_discount_pct</td></tr>
+          <tr><td>loyalty_transaction</td><td>Points ledger, same discipline as stock.</td><td>customer_id, type (EARN / REDEEM / EXPIRE / ADJUST), points, invoice_id, expires_at</td></tr>
+          <tr><td>store_credit</td><td>Refund-as-credit ledger.</td><td>customer_id, type, amount, balance_after, ref_doc_type, ref_doc_id, expires_at</td></tr>
+          <tr><td>gift_card</td><td>Sold and redeemed like cash.</td><td>code&nbsp;UNIQUE, initial_value, balance, issued_to, issued_at, expires_at, status</td></tr>
+          <tr><td>gift_card_txn</td><td>Every load and spend.</td><td>gift_card_id, type, amount, invoice_id</td></tr>
+          <tr><td>alteration_job</td><td>Tailoring against a bill.</td><td>invoice_id, invoice_item_id, customer_id, tailor_name, measurements&nbsp;JSONB, charge, promised_date, status, delivered_at</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="scroll">
+      <table class="tbl">
+        <caption>Group H &mdash; Tax &amp; money &middot; 4 tables</caption>
+        <thead><tr><th style="width:180px">Table</th><th>Purpose</th><th style="width:34%">Notable columns</th></tr></thead>
+        <tbody>
+          <tr><td>tax_rate</td><td>Rates by HSN and date. <strong>Never hardcode.</strong></td><td>name, hsn_code, rate_pct, cess_pct, price_threshold NULL, effective_from, effective_to</td></tr>
+          <tr><td>expense</td><td>Rent, salary, power, tea.</td><td>store_id, category, amount, spent_on, paid_mode, paid_by, note, attachment_url</td></tr>
+          <tr><td>expense_category</td><td>Keeps the P&amp;L readable.</td><td>name, is_fixed_cost</td></tr>
+          <tr><td>number_series</td><td>Gapless document numbers per FY, and item-code serials per prefix.</td><td>store_id, doc_type (INVOICE / GRN / CN / ITEM_CODE:SH &hellip;), prefix, fy, current_no &mdash; unique on (store, doc_type, fy)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="scroll">
+      <table class="tbl">
+        <caption>Group I &mdash; Platform &middot; 4 tables</caption>
+        <thead><tr><th style="width:180px">Table</th><th>Purpose</th><th style="width:34%">Notable columns</th></tr></thead>
+        <tbody>
+          <tr><td>audit_log</td><td>Who changed what. Non-negotiable in a shop with staff.</td><td>entity_type, entity_id, action, before&nbsp;JSONB, after&nbsp;JSONB, user_id, ip, created_at</td></tr>
+          <tr><td>app_setting</td><td>Per-store config without a redeploy.</td><td>store_id, key, value&nbsp;JSONB</td></tr>
+          <tr><td>message_log</td><td>Every WhatsApp/SMS sent, with status.</td><td>channel, template, to_phone, payload, provider_id, status, error, sent_at</td></tr>
+          <tr><td>attachment</td><td>Uploaded files, referenced polymorphically.</td><td>owner_type, owner_id, url, mime, size_bytes, uploaded_by</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4>Indexes that will matter on day one</h4>
+    <div class="chips">
+      <span class="chip k">product(code_norm)</span><span class="chip k">product(search_text) &mdash; GIN trigram</span>
+      <span class="chip k">inventory_stock(variant_id, location_id)</span><span class="chip k">invoice(store_id, invoice_date)</span>
+      <span class="chip">product_variant(sku)</span><span class="chip">product_variant(variant_code)</span>
+      <span class="chip">stock_ledger(variant_id, created_at)</span><span class="chip">invoice_item(variant_id)</span>
+      <span class="chip">customer(phone)</span><span class="chip">invoice(customer_id)</span>
+    </div>
+    <p>The trigram index on <code>search_text</code> serves the back office and the delta-sync endpoint. Counter search does not touch it — that runs against the browser's cached copy. Build both anyway; the server-side one is what you'll debug against.</p>
+  </section>
+
+  <!-- ============ CHECKOUT ============ -->
+  <section id="checkout">
+    <h2><span class="tag">09 &mdash; Critical path</span>Checkout flow</h2>
+    <p>This is the transaction you must get right. Everything else in the system can be slow or slightly wrong and the shop still runs; if billing double-charges or loses stock, it doesn't.</p>
+
+    <figure>
+      <div class="fbox">
+        <svg class="dia" viewBox="0 0 660 596" role="img" aria-label="Checkout sequence: the client sends an idempotency key, the server checks for a replay, prices the cart, computes tax, reserves an invoice number under a row lock, writes all documents in one transaction, then prints and messages after commit.">
+          <defs>
+            <marker id="d1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+          <g font-family="Archivo, sans-serif" fill="currentColor">
+            <rect x="140" y="130" width="400" height="326" fill="none" stroke="#2B3A80" stroke-dasharray="6 4" stroke-width="1.4"/>
+            <text x="548" y="152" font-size="11" font-weight="700" fill="#2B3A80">ONE</text>
+            <text x="548" y="167" font-size="11" font-weight="700" fill="#2B3A80">DATABASE</text>
+            <text x="548" y="182" font-size="11" font-weight="700" fill="#2B3A80">TRANSACTION</text>
+
+            <g>
+              <rect x="160" y="26" width="340" height="44" fill="none" stroke="currentColor" stroke-width="1.4"/>
+              <text x="176" y="46" font-size="12.5" font-weight="700">Type codes, pick customer, take payment</text>
+              <text x="176" y="62" font-size="10.5" fill="#7A8098">resolved against the cached catalog &mdash; no round trip per line</text>
+
+              <line x1="330" y1="70" x2="330" y2="88" stroke="currentColor" marker-end="url(#d1)"/>
+
+              <rect x="160" y="90" width="340" height="30" fill="none" stroke="currentColor" stroke-width="1.4"/>
+              <text x="176" y="110" font-size="12" font-weight="600">POST /checkout &nbsp;+&nbsp; Idempotency-Key</text>
+
+              <line x1="330" y1="120" x2="330" y2="142" stroke="currentColor" marker-end="url(#d1)"/>
+
+              <rect x="160" y="144" width="340" height="44" fill="none" stroke="currentColor" stroke-width="1.4"/>
+              <text x="176" y="164" font-size="12" font-weight="600">Key already seen?</text>
+              <text x="176" y="180" font-size="10.5" fill="#7A8098">yes &rarr; return the original bill, change nothing</text>
+
+              <line x1="330" y1="188" x2="330" y2="206" stroke="currentColor" marker-end="url(#d1)"/>
+
+              <rect x="160" y="208" width="340" height="44" fill="none" stroke="currentColor" stroke-width="1.4"/>
+              <text x="176" y="228" font-size="12" font-weight="600">Reprice every line server-side</text>
+              <text x="176" y="244" font-size="10.5" fill="#7A8098">discount engine runs here &mdash; never trust client totals</text>
+
+              <line x1="330" y1="252" x2="330" y2="270" stroke="currentColor" marker-end="url(#d1)"/>
+
+              <rect x="160" y="272" width="340" height="44" fill="none" stroke="currentColor" stroke-width="1.4"/>
+              <text x="176" y="292" font-size="12" font-weight="600">Tax on the discounted value</text>
+              <text x="176" y="308" font-size="10.5" fill="#7A8098">CGST/SGST split, round-off to the bill total</text>
+
+              <line x1="330" y1="316" x2="330" y2="334" stroke="currentColor" marker-end="url(#d1)"/>
+
+              <rect x="160" y="336" width="340" height="44" fill="none" stroke="#A2323F" stroke-width="1.6"/>
+              <text x="176" y="356" font-size="12" font-weight="600" fill="#A2323F">Reserve invoice no. &mdash; SELECT &hellip; FOR UPDATE</text>
+              <text x="176" y="372" font-size="10.5" fill="#A2323F">the serialisation point; hold it for microseconds</text>
+
+              <line x1="330" y1="380" x2="330" y2="398" stroke="currentColor" marker-end="url(#d1)"/>
+
+              <rect x="160" y="400" width="340" height="44" fill="none" stroke="currentColor" stroke-width="1.4"/>
+              <text x="176" y="420" font-size="12" font-weight="600">Write invoice + items + payments + ledger</text>
+              <text x="176" y="436" font-size="10.5" fill="#7A8098">stock rows and loyalty points in the same commit</text>
+
+              <line x1="330" y1="456" x2="330" y2="478" stroke="currentColor" marker-end="url(#d1)"/>
+              <text x="340" y="472" font-size="10.5" fill="#7A8098">COMMIT</text>
+
+              <rect x="160" y="480" width="340" height="44" fill="none" stroke="currentColor" stroke-dasharray="5 3"/>
+              <text x="176" y="500" font-size="12" font-weight="600">Print, then WhatsApp the bill</text>
+              <text x="176" y="516" font-size="10.5" fill="#7A8098">after commit &mdash; a failed SMS must not roll back a sale</text>
+            </g>
+
+            <text x="20" y="46" font-size="10" font-weight="700" letter-spacing="1.2" fill="#7A8098">CLIENT</text>
+            <text x="20" y="228" font-size="10" font-weight="700" letter-spacing="1.2" fill="#7A8098">SERVER</text>
+            <text x="20" y="500" font-size="10" font-weight="700" letter-spacing="1.2" fill="#7A8098">AFTER</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption>The idempotency key at the top and the row lock near the bottom are what make a double-tapped Pay button harmless and invoice numbers gapless. Side effects that can fail independently sit outside the transaction.</figcaption>
+    </figure>
+
+    <h3>Sequence, in words</h3>
+    <ol>
+      <li>Cashier types a code; the client resolves it against the cached catalog and shows the item for visual confirmation before the line commits.</li>
+      <li>Client posts the cart with a UUID it generated when the cart was created.</li>
+      <li>Server rejects a replayed key by returning the existing invoice — same response, no second bill.</li>
+      <li>Server recomputes every price, discount and tax. Client-sent totals are used only to detect a mismatch and log it.</li>
+      <li>Invoice number is drawn from <code>number_series</code> under a row lock, scoped to store and financial year.</li>
+      <li>Invoice, items, payments, stock ledger rows, on-hand cache and loyalty points all commit together or not at all.</li>
+      <li>Print and messaging fire after commit, through an outbox so a provider outage retries instead of failing the sale.</li>
+    </ol>
+  </section>
+
+  <!-- ============ DISCOUNTS ============ -->
+  <section id="discounts">
+    <h2><span class="tag">10 &mdash; Pricing</span>Discount engine</h2>
+    <p>You asked for discounts specifically, so here is the shape rather than a hardcoded percentage field. Model a discount as a <strong>rule with conditions</strong>, evaluated by an engine that takes a cart and returns priced lines. The POS calls the same engine for its live preview that the server calls at checkout — one implementation, exposed over an endpoint, so the two can never disagree.</p>
+
+    <div class="scroll">
+      <table class="tbl">
+        <caption>Rule types to support</caption>
+        <thead><tr><th style="width:170px">Type</th><th>Example</th><th style="width:100px">Applies at</th></tr></thead>
+        <tbody>
+          <tr><td>PERCENT</td><td>20% off all Kurtis</td><td>line</td></tr>
+          <tr><td>FLAT</td><td>&#8377;200 off this item</td><td>line</td></tr>
+          <tr><td>BILL_PERCENT</td><td>10% off the whole bill</td><td>bill</td></tr>
+          <tr><td>THRESHOLD</td><td>Spend &#8377;5,000, get &#8377;500 off</td><td>bill</td></tr>
+          <tr><td>BUY_X_GET_Y</td><td>Buy 2 shirts, third free (cheapest free)</td><td>line group</td></tr>
+          <tr><td>TIER</td><td>Gold members always get 5%</td><td>bill</td></tr>
+          <tr><td>COUPON</td><td>Code DIWALI25, 500 uses, once per customer</td><td>bill</td></tr>
+          <tr><td>MANUAL</td><td>Cashier negotiates &#8377;150 off &mdash; needs approval and gets logged</td><td>line or bill</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Evaluation order</h3>
+    <ol>
+      <li>Match every active rule whose date window and conditions fit the cart.</li>
+      <li>Sort by <code>priority</code>. Apply line-scoped rules first, then bill-scoped.</li>
+      <li>A non-stackable rule that fires excludes lower-priority rules on the same line. Where two could apply, pick the one better for the customer and record which lost.</li>
+      <li>Clamp each rule at its <code>max_discount_amount</code>, then clamp the bill at a global maximum-discount policy.</li>
+      <li>Write one <code>applied_discount</code> row per rule that fired.</li>
+    </ol>
+
+    <div class="callout">
+      <span class="lbl">Two things that bite people</span>
+      <p><strong>Discount before tax.</strong> Under GST the taxable value is the price <em>after</em> discount. Computing tax on MRP and then subtracting the discount overstates your output tax and is wrong on the invoice.</p>
+      <p><strong>Rounding.</strong> Distribute a bill-level discount back across lines proportionally, then fix the last line so the parts sum exactly to the whole. Otherwise your line totals won't add up to the bill total and your accountant will ask why.</p>
+    </div>
+
+    <div class="callout note">
+      <span class="lbl">The report that pays for this module</span>
+      <p><strong>Discount given vs. margin</strong>, sliced by staff member. It's how you find out that one cashier is quietly giving 15% to everybody, and whether your Diwali offer actually sold anything or just handed money to people who would have bought anyway.</p>
+    </div>
+  </section>
+
+  <!-- ============ RULES ============ -->
+  <section id="rules">
+    <h2><span class="tag">11 &mdash; Non-negotiable</span>Engineering rules</h2>
+    <p>Short list, all learned the expensive way. Put it in your <code>CLAUDE.md</code> or contributing guide.</p>
+
+    <div class="cols">
+      <div>
+        <h4>Money &amp; numbers</h4>
+        <ul>
+          <li>Money is <code>NUMERIC(12,2)</code> and <code>BigDecimal</code>. Never <code>double</code>, never <code>float</code>. One rupee lost per bill is thousands a year.</li>
+          <li>Quantity is <code>NUMERIC(12,3)</code> so 2.5 metres works.</li>
+          <li>Percentages are <code>NUMERIC(5,2)</code>, stored as 5.00 not 0.05. Pick one and never mix.</li>
+          <li>Always pass an explicit <code>RoundingMode.HALF_UP</code>.</li>
+        </ul>
+
+        <h4>Documents</h4>
+        <ul>
+          <li><code>invoice_item</code> snapshots name, SKU, HSN, price and tax rate. A bill from last year must reprint identically after you rename the product.</li>
+          <li>Store <code>cost_at_sale</code> on the line, or your margin reports rewrite history every time cost changes.</li>
+          <li>Financial records are never deleted. Void writes a reversing document; hard <code>DELETE</code> is not available to the application.</li>
+          <li>Invoice numbers are gapless per financial year, allocated under a row lock.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Concurrency &amp; safety</h4>
+        <ul>
+          <li>Item codes are normalised (uppercase, strip spaces and hyphens) on <em>write and read</em>. Uniqueness is enforced on <code>code_norm</code>, never on the display form.</li>
+          <li>A code, once issued, is never edited and never reused — including after a product is discontinued.</li>
+          <li>Every mutating POST accepts an <code>Idempotency-Key</code>. Checkout, GRN posting and payment recording require one.</li>
+          <li><code>@Version</code> on <code>inventory_stock</code>; retry the transaction on an optimistic-lock failure.</li>
+          <li>Stock changes only through <code>InventoryService.post()</code>. Enforce with an ArchUnit test.</li>
+          <li>Never trust a client-computed total. Recompute, compare, log the delta.</li>
+        </ul>
+
+        <h4>Operations</h4>
+        <ul>
+          <li>Timestamps stored UTC as <code>timestamptz</code>, displayed in IST.</li>
+          <li>Flyway migrations from commit one. No <code>ddl-auto: update</code> in any environment.</li>
+          <li>Audit log on price changes, voids, discount overrides, stock adjustments and cost views.</li>
+          <li>Nightly encrypted <code>pg_dump</code> offsite, and a restore actually rehearsed once a month. An untested backup is not a backup.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout">
+      <span class="lbl">Verify before you code the tax module</span>
+      <p>Indian textile and apparel GST slabs have been revised more than once, and rates can depend on the item's price. Keep every rate in <code>tax_rate</code> with an <code>effective_from</code> date, resolve by HSN and invoice date, and confirm the current values with your CA rather than trusting any number in this document or in a tutorial.</p>
+    </div>
+  </section>
+
+  <!-- ============ API ============ -->
+  <section id="api">
+    <h2><span class="tag">12 &mdash; Contract</span>API surface</h2>
+    <p>REST under <code>/api/v1</code>, JWT access token plus a refresh token in an HttpOnly cookie, pagination via <code>?page&amp;size&amp;sort</code>, and a consistent error envelope. The core endpoints:</p>
+
+    <div class="api">
+      <div class="api-row"><div class="m post">POST</div><div><span class="p">/auth/login</span> <span class="d">issue access + refresh</span></div></div>
+      <div class="api-row"><div class="m">GET</div><div><span class="p">/products</span> <span class="d">search, filter by category, brand, season, stock state</span></div></div>
+      <div class="api-row"><div class="m post">POST</div><div><span class="p">/products</span> <span class="d">create a style and its whole variant grid in one call</span></div></div>
+      <div class="api-row"><div class="m">GET</div><div><span class="p">/catalog/resolve?code=</span> <span class="d">code &rarr; product or variant; the server-side fallback</span></div></div>
+      <div class="api-row"><div class="m">GET</div><div><span class="p">/catalog/sync?since=</span> <span class="d">delta feed that keeps the browser cache warm &mdash; the hot path</span></div></div>
+      <div class="api-row"><div class="m">GET</div><div><span class="p">/catalog/search?q=</span> <span class="d">fuzzy fallback when the client cache is cold</span></div></div>
+      <div class="api-row"><div class="m">GET</div><div><span class="p">/inventory/stock?variantIds=</span> <span class="d">bulk on-hand lookup</span></div></div>
+      <div class="api-row"><div class="m post">POST</div><div><span class="p">/inventory/adjustments</span> <span class="d">reason required</span></div></div>
+      <div class="api-row"><div class="m">GET</div><div><span class="p">/inventory/ledger?variantId=</span> <span class="d">"how did it get to 37?"</span></div></div>
+      <div class="api-row"><div class="m post">POST</div><div><span class="p">/pricing/quote</span> <span class="d">cart in, priced lines out &mdash; the POS live preview</span></div></div>
+      <div class="api-row"><div class="m post">POST</div><div><span class="p">/sales/checkout</span> <span class="d">idempotent; the one endpoint to test hardest</span></div></div>
+      <div class="api-row"><div class="m">GET</div><div><span class="p">/sales/invoices/{id}/print?format=thermal|a4</span> <span class="d">render payload</span></div></div>
+      <div class="api-row"><div class="m post">POST</div><div><span class="p">/sales/returns</span> <span class="d">credit note against an original bill</span></div></div>
+      <div class="api-row"><div class="m post">POST</div><div><span class="p">/sales/register/close</span> <span class="d">day close with counted cash</span></div></div>
+      <div class="api-row"><div class="m post">POST</div><div><span class="p">/purchase/grn/{id}/post</span> <span class="d">moves stock in; idempotent</span></div></div>
+      <div class="api-row"><div class="m">GET</div><div><span class="p">/customers/search?phone=</span> <span class="d">the counter lookup</span></div></div>
+      <div class="api-row"><div class="m">GET</div><div><span class="p">/reports/day-sales?date=</span> <span class="d">the owner's home screen</span></div></div>
+      <div class="api-row"><div class="m">GET</div><div><span class="p">/reports/dead-stock?days=90</span> <span class="d">the report that makes you money</span></div></div>
+      <div class="api-row"><div class="m del">DELETE</div><div><span class="p">/sales/invoices/{id}</span> <span class="d">void only &mdash; writes a reversal, never removes a row</span></div></div>
+    </div>
+  </section>
+
+  <!-- ============ DEPLOY ============ -->
+  <section id="deploy">
+    <h2><span class="tag">13 &mdash; Stack</span>Stack &amp; deployment</h2>
+
+    <div class="cols">
+      <div>
+        <h4>Front end</h4>
+        <ul>
+          <li><strong>React 18 + TypeScript</strong>, built with Vite.</li>
+          <li><strong>TanStack Query</strong> for server state; <strong>Zustand</strong> for the cart only. You do not need Redux here.</li>
+          <li><strong>Tailwind + shadcn/ui</strong> for the back office; a hand-built, deliberately plain POS screen with large type and a permanently focused entry box.</li>
+          <li><strong>React Hook Form + Zod</strong>, sharing the validation shapes with the API contract.</li>
+          <li><strong>Dexie</strong> over IndexedDB for the cached catalog and the bill outbox.</li>
+          <li><strong>MiniSearch</strong> (or a hand-rolled prefix map) for in-browser code and name lookup. A few thousand variants index in milliseconds; do not send keystrokes to the server.</li>
+          <li>Print via a hidden iframe with <code>@page</code> CSS for A4, and the local agent for 80&nbsp;mm thermal.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Back end</h4>
+        <ul>
+          <li><strong>Spring Boot 3.x on Java 21</strong> — records, pattern matching, virtual threads.</li>
+          <li>Spring Web, Data JPA, Security, Validation, Actuator.</li>
+          <li><strong>Flyway</strong> for migrations, <strong>MapStruct</strong> for DTOs, <strong>Testcontainers</strong> for tests against real Postgres.</li>
+          <li><strong>jasperreports</strong> or plain HTML&rarr;PDF for the A4 tax invoice.</li>
+          <li>OpenAPI via springdoc; generate the TypeScript client from it.</li>
+          <li>Skip Redis, Kafka and Elasticsearch until something actually hurts.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>Where it runs</h3>
+    <p>One small VPS — 2 vCPU, 4&nbsp;GB — running Docker Compose with three containers: Postgres, the Spring Boot jar, and Nginx serving the React build and terminating TLS. That is roughly &#8377;600&ndash;1,200 a month and will comfortably serve a shop doing a few hundred bills a day. Kubernetes would be a hobby, not an improvement.</p>
+
+    <div class="callout ok">
+      <span class="lbl">The part people skip</span>
+      <p>Nightly <code>pg_dump</code>, encrypted, pushed offsite, with a retention window. Then <strong>restore it into a scratch container once a month and open the app against it.</strong> The shop's entire transaction history and your GST filings live in that one database. Losing it is the only failure in this document you cannot recover from.</p>
+    </div>
+  </section>
+
+  <!-- ============ ROADMAP ============ -->
+  <section id="roadmap">
+    <h2><span class="tag">14 &mdash; Sequence</span>Build order</h2>
+    <p>These phases are genuinely sequential — each one is usable on its own, and each depends on the one before it. Ship Phase 1 into the actual shop before writing a line of Phase 2. Real bills will teach you more about what to build than any plan, including this one.</p>
+
+    <div class="phases">
+      <div class="phase">
+        <div class="no">01</div>
+        <div>
+          <b>Bill something</b>
+          <p>Auth and roles, category / brand / product / variant, the item-code scheme and tag printing, opening stock entry, the stock ledger, the cached-catalog code search and variant picker, POS billing with split payment, GST calculation, thermal receipt. The shop can open on this alone.</p>
+        </div>
+        <div class="wk">wk 1&ndash;6</div>
+      </div>
+      <div class="phase">
+        <div class="no">02</div>
+        <div>
+          <b>Close the loop</b>
+          <p>Purchase orders and GRN, supplier ledger, returns and exchanges with credit notes, hold/recall, customer records, expenses, register day close, quick-pick tiles, weekly cycle counts, and the first four reports.</p>
+        </div>
+        <div class="wk">wk 7&ndash;10</div>
+      </div>
+      <div class="phase">
+        <div class="no">03</div>
+        <div>
+          <b>Sell smarter</b>
+          <p>The discount rule engine and coupons, loyalty points and tiers, store credit, WhatsApp bills, alteration jobs, dead-stock and size-curve reports, offline billing, GSTR-1 extract.</p>
+        </div>
+        <div class="wk">wk 11&ndash;16</div>
+      </div>
+      <div class="phase">
+        <div class="no">04</div>
+        <div>
+          <b>Scale the operation</b>
+          <p>Second location and stock transfers, physical stock take, gift cards, salesperson commission, per-store number series, an owner dashboard that works on a phone.</p>
+        </div>
+        <div class="wk">wk 17+</div>
+      </div>
+      <div class="phase">
+        <div class="no">05</div>
+        <div>
+          <b>Go online &mdash; only if you want to</b>
+          <p>Customer-facing catalog, stock reservation, order fulfilment states, payment gateway, delivery partner. This is a second product sharing a database, not a feature. Decide deliberately.</p>
+        </div>
+        <div class="wk">later</div>
+      </div>
+    </div>
+
+    <h3>What to cut if you're short on time</h3>
+    <p>Gift cards, commission, the online store, and anything in Phase 4 or 5. What you cannot cut: the variant model, the item-code scheme, the stock ledger, gapless invoice numbering, snapshot pricing on invoice lines, and backups. Those are structural — retrofitting any of them means migrating live financial data, or reprinting every tag in the shop.</p>
+
+    <footer>
+      <p>Draft high-level design, 13 September 2026. Written for a single-store Indian garment retailer. Tax rates, HSN codes and statutory invoice requirements should be confirmed with a chartered accountant before the billing module goes live.</p>
+    </footer>
+  </section>
+
+  </main>
+</div>

@@ -1,0 +1,20 @@
+# secrets
+.env
+*.env
+!.env.example
+
+# java
+backend/target/
+*.class
+
+# node
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# editors / os
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db

@@ -1,0 +1,44 @@
+spring:
+  application:
+    name: cloth-shop
+
+  datasource:
+    # Supabase SESSION POOLER string (port 5432), not the transaction pooler (6543).
+    # The transaction pooler does not support prepared statements and will break Hibernate.
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 5          # Supabase free tier is connection-limited. Do not raise this.
+      minimum-idle: 1
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 900000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate            # Flyway owns the schema. Never 'update'.
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+server:
+  port: 8080
+  error:
+    include-message: always
+
+app:
+  cors:
+    allowed-origins: http://localhost:5173
+  inventory:
+    default-location-code: MAIN
+
+logging:
+  level:
+    com.clothshop: DEBUG
