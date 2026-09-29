@@ -42,6 +42,14 @@ public class StockLedger {
     @Column(name = "unit_cost", updatable = false, precision = 12, scale = 2)
     private BigDecimal unitCost;
 
+    /**
+     * What the customer paid, per piece. The mirror of {@link #unitCost} and null on
+     * anything that is not a sale — together they make an article's history answer both
+     * what each lot cost and what each sale fetched.
+     */
+    @Column(name = "unit_price", updatable = false, precision = 12, scale = 2)
+    private BigDecimal unitPrice;
+
     /** Who this lot was bought from. Null on movements that are not purchases. */
     @Column(name = "wholesaler_id", updatable = false)
     private Long wholesalerId;

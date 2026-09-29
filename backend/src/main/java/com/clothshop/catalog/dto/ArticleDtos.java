@@ -216,8 +216,12 @@ public final class ArticleDtos {
             BigDecimal balanceAfter,
             /** What this particular lot cost — not the running average. */
             BigDecimal unitCost,
+            /** What the customer paid, on sales. Null on everything else. */
+            BigDecimal unitPrice,
             /** Null for movements recorded before suppliers were tracked. */
             String wholesaler,
+            /** The bill this row came from, when it came from one. */
+            String reference,
             String note,
             String createdBy,
             Instant createdAt

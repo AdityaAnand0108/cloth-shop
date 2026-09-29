@@ -305,7 +305,9 @@ public class ArticleService {
                         row.getQtyDelta(),
                         row.getBalanceAfter(),
                         row.getUnitCost(),
+                        row.getUnitPrice(),
                         row.getWholesalerId() == null ? null : names.get(row.getWholesalerId()),
+                        "SALE".equals(row.getRefDocType()) ? row.getRefDocId() : null,
                         row.getNote(),
                         row.getCreatedBy(),
                         row.getCreatedAt()))

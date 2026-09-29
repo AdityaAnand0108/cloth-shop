@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,6 +42,20 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
             """)
     List<ProductVariant> findSiblings(@Param("productId") Long productId,
                                       @Param("excludeVariantId") Long excludeVariantId);
+
+    /**
+     * The articles behind a cart, with everything a bill line has to print. One query
+     * for the whole cart: the counter should not pay a round trip per garment while a
+     * customer stands there.
+     */
+    @Query("""
+            select v from ProductVariant v
+              join fetch v.product p
+              join fetch v.colour
+              join fetch v.size
+            where v.id in :ids
+            """)
+    List<ProductVariant> findAllForSale(@Param("ids") Collection<Long> ids);
 
     /**
      * One query for the whole browse screen. Every filter is optional and a null one
