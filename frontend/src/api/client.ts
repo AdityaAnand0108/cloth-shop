@@ -1,6 +1,7 @@
 import type {
   AddArticleRequest, AddArticleResponse, ApiError, ArticleDetail, ArticleFilters,
-  ArticleListItem, LookupItem, Lookups, Page, PreviewResponse, WholesalerItem,
+  ArticleListItem, Bill, CartArticle, CheckoutRequest, DaySummary, LookupItem,
+  Lookups, Page, PreviewResponse, WholesalerItem,
 } from './types'
 
 const BASE = '/api/v1'
@@ -79,4 +80,31 @@ export const api = {
     }
     return request<Page<ArticleListItem>>(`/articles?${params}`, { signal })
   },
+
+  /**
+   * The cart lives in the browser and can be hours old, so it re-asks the server for
+   * price, cost and stock before anything is charged rather than trusting itself.
+   */
+  priceCheck: (variantIds: number[]) =>
+    request<CartArticle[]>('/sales/price-check', {
+      method: 'POST',
+      body: JSON.stringify({ variantIds }),
+    }),
+
+  /**
+   * Ring up the cart. The key is minted once per cart, so the counter tapping
+   * "Complete sale" twice gets the same bill back instead of selling the goods again.
+   */
+  checkout: (body: CheckoutRequest, idempotencyKey: string) =>
+    request<Bill>('/sales', {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify(body),
+    }),
+
+  bill: (id: number) => request<Bill>(`/sales/${id}`),
+
+  /** Today by default; pass an ISO date to look back at a previous day. */
+  day: (date?: string) =>
+    request<DaySummary>(`/sales/day${date ? `?date=${date}` : ''}`),
 }

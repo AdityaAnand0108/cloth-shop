@@ -68,6 +68,47 @@ public class InventoryService {
                            String note,
                            String user) {
 
+        return append(variantId, locationId, type, qtyDelta, unitCost, null,
+                wholesalerId, refDocType, refDocId, note, user);
+    }
+
+    /**
+     * Take stock out against a bill.
+     *
+     * <p>Selling does not touch the cost basis — {@code avgCost} only moves when stock
+     * comes in. What the sale does record is both numbers side by side: the cost the
+     * piece carried as it left, and the price the customer actually paid, so the
+     * article's own history answers "what did we make on it" without the bill.
+     *
+     * @param qty a positive count; it is the caller's intent that is positive, and the
+     *            ledger's negative delta is this method's business, not theirs
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public BigDecimal postSale(Long variantId,
+                               Long locationId,
+                               BigDecimal qty,
+                               BigDecimal unitCost,
+                               BigDecimal unitPrice,
+                               String billNo,
+                               String note,
+                               String user) {
+
+        return append(variantId, locationId, MovementType.SALE_OUT, qty.negate(), unitCost,
+                unitPrice, null, "SALE", billNo, note, user);
+    }
+
+    private BigDecimal append(Long variantId,
+                              Long locationId,
+                              MovementType type,
+                              BigDecimal qtyDelta,
+                              BigDecimal unitCost,
+                              BigDecimal unitPrice,
+                              Long wholesalerId,
+                              String refDocType,
+                              String refDocId,
+                              String note,
+                              String user) {
+
         if (qtyDelta == null || qtyDelta.signum() == 0) {
             throw ApiException.badRequest("ZERO_MOVEMENT", "A stock movement of zero is not a movement");
         }
@@ -85,7 +126,8 @@ public class InventoryService {
         if (balanceAfter.signum() < 0) {
             throw ApiException.conflict("INSUFFICIENT_STOCK",
                     "Only " + stock.getQtyOnHand().stripTrailingZeros().toPlainString() + " in stock",
-                    Map.of("available", stock.getQtyOnHand(), "requested", qtyDelta.abs()));
+                    Map.of("available", stock.getQtyOnHand(), "requested", qtyDelta.abs(),
+                            "variantId", variantId));
         }
 
         StockLedger entry = new StockLedger();
@@ -95,6 +137,7 @@ public class InventoryService {
         entry.setQtyDelta(qtyDelta);
         entry.setBalanceAfter(balanceAfter);
         entry.setUnitCost(unitCost);
+        entry.setUnitPrice(unitPrice);
         entry.setWholesalerId(wholesalerId);
         entry.setRefDocType(refDocType);
         entry.setRefDocId(refDocId);

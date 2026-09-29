@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../../api/client'
 import type { ArticleDetail } from '../../api/types'
+import { AddToCartButton } from '../cart/AddToCartButton'
 
 const rupees = (n: number) =>
   `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -81,6 +82,19 @@ export function ArticleDetailPage({ variantId, onBack, onOpenArticle }: {
           {d.hsnCode && <span className="chip">HSN {d.hsnCode}</span>}
         </div>
       </header>
+
+      <div className="sell-strip">
+        <div className="sell-strip-price">
+          <span className="stat-label">Selling price</span>
+          <strong>{rupees(d.sellingPrice)}</strong>
+        </div>
+        <span className={`sell-strip-stock ${d.qtyOnHand <= 0 ? 'out' : ''}`}>
+          {d.qtyOnHand <= 0
+            ? 'Nothing on the shelf'
+            : `${qty(d.qtyOnHand)} on the shelf`}
+        </span>
+        <AddToCartButton variantId={d.variantId} qtyOnHand={Number(d.qtyOnHand)} size="full" />
+      </div>
 
       {notes.length > 0 && (
         <div className="notes">
@@ -210,8 +224,9 @@ export function ArticleDetailPage({ variantId, onBack, onOpenArticle }: {
                 <th>What happened</th>
                 <th className="r">Qty</th>
                 <th className="r">Balance</th>
-                <th className="r">Rate</th>
-                <th>Bought from</th>
+                <th className="r">Cost rate</th>
+                <th className="r">Sold at</th>
+                <th>From / bill</th>
                 <th>Note</th>
                 <th>By</th>
               </tr>
@@ -226,7 +241,8 @@ export function ArticleDetailPage({ variantId, onBack, onOpenArticle }: {
                   </td>
                   <td className="r num">{qty(row.balanceAfter)}</td>
                   <td className="r num">{row.unitCost === null ? '—' : rupees(row.unitCost)}</td>
-                  <td>{row.wholesaler ?? '—'}</td>
+                  <td className="r num">{row.unitPrice === null ? '—' : rupees(row.unitPrice)}</td>
+                  <td>{row.wholesaler ?? row.reference ?? '—'}</td>
                   <td>{row.note ?? '—'}</td>
                   <td className="muted">{row.createdBy ?? '—'}</td>
                 </tr>
@@ -257,6 +273,7 @@ export function ArticleDetailPage({ variantId, onBack, onOpenArticle }: {
                       <th>Size</th>
                       <th className="r">Selling</th>
                       <th className="r">Stock</th>
+                      <th></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -276,6 +293,9 @@ export function ArticleDetailPage({ variantId, onBack, onOpenArticle }: {
                         <td className="r num">{rupees(s.sellingPrice)}</td>
                         <td className={`r num ${s.qtyOnHand <= 0 ? 'out' : ''}`}>
                           {s.qtyOnHand <= 0 ? 'out of stock' : qty(s.qtyOnHand)}
+                        </td>
+                        <td className="r">
+                          <AddToCartButton variantId={s.variantId} qtyOnHand={Number(s.qtyOnHand)} />
                         </td>
                       </tr>
                     ))}

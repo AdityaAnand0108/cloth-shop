@@ -1,7 +1,6 @@
 import type { ArticleListItem } from '../../api/types'
-
-const rupees = (n: number) =>
-  n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+import { AddToCartButton } from '../cart/AddToCartButton'
+import { amount as rupees } from '../../money'
 
 export function ArticleTable({ items, onSelect }: {
   items: ArticleListItem[]
@@ -40,9 +39,12 @@ export function ArticleTable({ items, onSelect }: {
               <td className="r num">{rupees(a.sellingPrice)}</td>
               <td className={`r num ${Number(a.qtyOnHand) <= 0 ? 'out' : ''}`}>{a.qtyOnHand}</td>
               <td className="r">
-                <button type="button" className="ghost small-btn" onClick={() => onSelect(a.variantId)}>
-                  View
-                </button>
+                <div className="row-actions">
+                  <button type="button" className="ghost small-btn" onClick={() => onSelect(a.variantId)}>
+                    View
+                  </button>
+                  <AddToCartButton variantId={a.variantId} qtyOnHand={Number(a.qtyOnHand)} />
+                </div>
               </td>
             </tr>
           ))}

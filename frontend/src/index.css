@@ -390,4 +390,212 @@ textarea:focus {
   font-variant-numeric: tabular-nums;
 }
 
+/* ---------- selling: the add-to-cart control ---------- */
+.row-actions { display: inline-flex; gap: 8px; justify-content: flex-end; }
+
+button.add-to-cart.small-btn {
+  border-color: var(--accent); color: var(--accent-strong); background: var(--surface);
+  white-space: nowrap;
+}
+button.add-to-cart.small-btn:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent); }
+button.add-to-cart.has-some { background: var(--accent-soft); font-weight: 700; }
+button.add-to-cart.flash { background: var(--success-soft); border-color: var(--success); color: var(--success); }
+button.primary.add-to-cart.flash { background: var(--success); border-color: var(--success); color: #fff; }
+
+/* The strip under an article's name: price, stock, and the one button that matters
+   when a customer is standing there holding the garment. */
+.sell-strip {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 22px;
+  padding: 16px 20px;
+  background: var(--accent-soft); border: 1px solid #cdd8f7;
+  border-radius: var(--radius-lg);
+}
+.sell-strip-price { display: flex; flex-direction: column; gap: 2px; }
+.sell-strip-price strong { font: 700 26px/1 'Cascadia Mono', monospace; color: var(--ink); }
+.sell-strip-stock { font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+.sell-strip-stock.out { color: var(--danger); }
+.sell-strip .add-to-cart { margin-left: auto; }
+
+/* ---------- the cart bar ---------- */
+.cart-bar {
+  position: sticky; bottom: 0; z-index: 30;
+  padding: 0 24px 18px;
+  pointer-events: none;
+}
+.cart-bar-inner {
+  max-width: 1080px; margin: 0 auto;
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 14px 12px 16px;
+  background: var(--ink); color: #fff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+}
+.cart-bar-count {
+  font: 700 14px/1 'Segoe UI', sans-serif;
+  min-width: 28px; height: 28px; padding: 0 9px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, 0.16); border-radius: 999px;
+}
+.cart-bar-text { flex: 1; font-size: 14.5px; font-weight: 500; }
+
+/* ---------- the cart ---------- */
+.cart-head { display: flex; flex-direction: column; gap: 10px; }
+.cart-head .list-head { align-items: baseline; }
+.cart-head h1 { margin: 0; }
+
+.empty-cart { align-items: flex-start; gap: 16px; }
+
+.cart-lines { display: flex; flex-direction: column; gap: 12px; }
+
+/* One line reads left to right the way it is spoken: what it is, how many, at what
+   price, for how much. */
+.cart-line {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) auto auto auto auto;
+  align-items: start; gap: 14px 20px;
+  padding: 15px 16px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface);
+}
+.cart-line.short { border-color: #f3c3cb; background: var(--danger-soft); }
+.cart-line { position: relative; }
+
+.cart-line-what { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
+.cart-line-name { font-weight: 600; }
+.cart-line-attrs {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px;
+  font-size: 13px; color: var(--ink-3);
+}
+.cart-line-attrs em { font-style: normal; font-weight: 600; }
+.cart-line-attrs em.warn { color: var(--danger); }
+
+.mini-label {
+  display: block; margin-bottom: 5px;
+  font: 700 10px/1 'Segoe UI', sans-serif; letter-spacing: 0.07em;
+  text-transform: uppercase; color: var(--ink-3);
+}
+
+.stepper { display: flex; align-items: stretch; }
+.stepper button {
+  width: 34px; padding: 0; font-size: 17px; font-weight: 700;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm); box-shadow: none;
+}
+.stepper button:last-of-type { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.stepper input {
+  width: 54px; text-align: center; border-radius: 0;
+  border-left: 0; border-right: 0; box-shadow: none;
+  font-variant-numeric: tabular-nums;
+}
+/* The spinners duplicate the buttons either side of them. */
+.stepper input::-webkit-outer-spin-button,
+.stepper input::-webkit-inner-spin-button { appearance: none; margin: 0; }
+.stepper input { -moz-appearance: textfield; }
+
+.cart-line-price { display: flex; flex-direction: column; }
+.cart-line-price input { width: 108px; text-align: right; }
+.price-note { margin-top: 5px; font-size: 12px; font-weight: 600; color: var(--ink-3); }
+.price-note.warn { color: var(--warning); }
+.price-note.bad { color: var(--danger); }
+
+.cart-line-total { display: flex; flex-direction: column; text-align: right; }
+.cart-line-total strong { font: 700 17px/1.3 'Cascadia Mono', monospace; }
+.cart-line-margin { margin-top: 4px; font-size: 12px; color: var(--ink-3); }
+
+button.icon-btn {
+  align-self: center;
+  width: 32px; height: 32px; padding: 0;
+  font-size: 19px; line-height: 1; color: var(--ink-3);
+  border-color: transparent; box-shadow: none;
+}
+button.icon-btn:hover:not(:disabled) { color: var(--danger); background: var(--danger-soft); border-color: transparent; }
+
+.cart-line-alert {
+  grid-column: 1 / -1; margin: 0;
+  font-size: 13px; font-weight: 600; color: var(--danger);
+}
+
+/* Five columns need about 950px of card to sit on one line. Below that the garment
+   takes a row of its own and the numbers pair up underneath it, which is also the
+   right shape for the tablet a counter is likely to be running this on. */
+@media (max-width: 900px) {
+  .cart-line { grid-template-columns: 1fr auto; }
+  .cart-line-what { grid-column: 1 / -1; padding-right: 38px; }
+  .cart-line-total { text-align: left; }
+  .cart-line-price input { width: 100%; }
+  /* Out of the flow, or it lands marooned beside the line total. */
+  button.icon-btn { position: absolute; top: 10px; right: 10px; align-self: auto; }
+}
+
+/* ---------- the bill being settled ---------- */
+.bill-card .costing th em { font-weight: 500; color: var(--ink-3); margin-left: 8px; }
+.round-off { margin-left: 10px; }
+
+.margin-strip {
+  padding: 12px 15px; border-radius: var(--radius); font-size: 14px;
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px;
+}
+.margin-strip.ok { background: var(--success-soft); color: var(--success); }
+.margin-strip.bad { background: var(--danger-soft); color: var(--danger); }
+.margin-strip strong { font-family: 'Cascadia Mono', monospace; }
+.margin-strip em { font-style: normal; font-size: 12.5px; opacity: 0.8; }
+
+/* align-self, because the fieldset around it is a column flex container and would
+   otherwise stretch three buttons across the whole card. */
+.segmented {
+  display: inline-flex; align-self: flex-start;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm); overflow: hidden;
+}
+button.seg {
+  border: 0; border-radius: 0; box-shadow: none; background: var(--surface);
+  padding: 10px 22px; color: var(--ink-2);
+}
+button.seg + button.seg { border-left: 1px solid var(--border); }
+button.seg:hover:not(:disabled) { background: var(--surface-2); box-shadow: none; }
+button.seg.on { background: var(--accent); color: #fff; font-weight: 700; }
+button.seg.on:hover { background: var(--accent-strong); }
+
+button.big { padding: 14px 28px; font-size: 16px; }
+.checkout-actions { align-items: center; }
+
+/* ---------- the receipt ---------- */
+.bill-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+
+.bill-paper { gap: 18px; }
+.bill-paper-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
+.bill-paper-head h1 { margin: 0; font-size: 24px; letter-spacing: -0.01em; }
+.bill-paper-head p { margin: 2px 0 0; }
+.bill-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; }
+.bill-meta code { font-size: 18px; font-weight: 700; letter-spacing: 0.06em; color: var(--accent-strong); }
+
+.bill-customer { margin: 0; padding: 11px 14px; background: var(--surface-2); border-radius: var(--radius-sm); }
+
+.bill-table { min-width: 460px; }
+.bill-line-name { display: block; font-weight: 600; color: var(--ink); }
+.bill-line-sub { display: block; margin-top: 2px; font-size: 12.5px; color: var(--ink-3); }
+.bill-line-sub code { font-size: 12.5px; }
+.bill-struck { display: block; font-size: 12px; color: var(--ink-3); text-decoration: line-through; }
+
+.bill-totals { max-width: 340px; margin-left: auto; }
+.bill-totals tr.total th, .bill-totals tr.total td { font-size: 16px; }
+
+.bill-saved {
+  margin: 0; padding: 10px 14px; border-radius: var(--radius);
+  background: var(--success-soft); color: var(--success);
+  font-weight: 600; font-size: 14px; text-align: right;
+}
+.bill-note { margin: 0; padding: 10px 14px; background: var(--surface-2); border-radius: var(--radius-sm); font-size: 14px; }
+.bill-foot { margin: 0; border-top: 1px dashed var(--border-strong); padding-top: 14px; }
+
+/* Ctrl+P hands over the paper and nothing else - no navigation, no cost price. */
+@media print {
+  body { background: #fff; }
+  .page { padding: 0; gap: 0; max-width: none; }
+  .no-print, .cart-bar { display: none !important; }
+  .bill-paper { border: 0; box-shadow: none; padding: 0; }
+  .table-scroll { overflow: visible; }
+  .bill-table { min-width: 0; }
+  tbody tr:hover { background: transparent; }
+}
+
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

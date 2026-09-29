@@ -116,7 +116,11 @@ export type LedgerEntry = {
   balanceAfter: number
   /** What this lot actually cost, as opposed to the running average. */
   unitCost: number | null
+  /** What the customer paid. Only ever set on sales. */
+  unitPrice: number | null
   wholesaler: string | null
+  /** The bill this row came from, when it came from one. */
+  reference: string | null
   note: string | null
   createdBy: string | null
   createdAt: string
@@ -173,4 +177,100 @@ export type ApiError = {
   code: string
   message: string
   details: Record<string, unknown>
+}
+
+// ---------- selling ----------
+
+/**
+ * What the counter needs to know about one article before a price is agreed: what it
+ * sells for, what it cost, and how many are actually left.
+ */
+export type CartArticle = {
+  variantId: number
+  articleCode: string
+  displayName: string
+  colour: string
+  colourHex: string | null
+  size: string
+  sellingPrice: number
+  /** The floor. Shown while haggling so nobody goes under it by accident. */
+  avgCost: number
+  mrp: number | null
+  qtyOnHand: number
+  status: string
+}
+
+export type PaymentMode = 'CASH' | 'UPI' | 'CARD'
+
+export type CheckoutLine = {
+  variantId: number
+  qty: number
+  /** What was actually agreed, which is not always the shelf price. */
+  unitPrice: number
+}
+
+export type CheckoutRequest = {
+  lines: CheckoutLine[]
+  staffId: number
+  customerName?: string
+  customerPhone?: string
+  discount: number
+  paymentMode: PaymentMode
+  note?: string
+}
+
+export type BillLine = {
+  variantId: number
+  articleCode: string
+  description: string
+  colour: string
+  size: string
+  qty: number
+  /** The sticker price at the time, so the discount given stays legible later. */
+  listPrice: number
+  unitPrice: number
+  unitCost: number
+  lineTotal: number
+}
+
+export type Bill = {
+  id: number
+  billNo: string
+  createdAt: string
+  staffName: string | null
+  customerName: string | null
+  customerPhone: string | null
+  subtotal: number
+  discount: number
+  total: number
+  /** Not for the customer's copy. */
+  costTotal: number
+  profit: number
+  paymentMode: PaymentMode
+  note: string | null
+  status: string
+  itemCount: number
+  lines: BillLine[]
+}
+
+export type BillSummary = {
+  id: number
+  billNo: string
+  createdAt: string
+  customerName: string | null
+  staffName: string | null
+  itemCount: number
+  total: number
+  profit: number
+  paymentMode: PaymentMode
+}
+
+export type DaySummary = {
+  date: string
+  billCount: number
+  itemCount: number
+  takings: number
+  profit: number
+  discountGiven: number
+  bills: BillSummary[]
 }

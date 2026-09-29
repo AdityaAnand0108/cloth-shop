@@ -38,6 +38,10 @@ app:
     allowed-origins: http://localhost:5173
   inventory:
     default-location-code: MAIN
+  shop:
+    # The shop's own day. A sale rung up at 9pm belongs to that day, not to UTC's
+    # next one, and "today's takings" has to agree with the till.
+    zone: Asia/Kolkata
 
 logging:
   level:

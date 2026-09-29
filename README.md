@@ -3,7 +3,8 @@
 Inventory and billing for a single retail cloth shop.
 React + TypeScript front end, Spring Boot 3 / Java 21 back end, PostgreSQL on Supabase.
 
-Built module by module. **Module 1 — Add Article — is complete.**
+Built module by module. **Module 1 (Add Article), Module 2 (Article list and detail) and
+Module 3 (selling at the counter) are complete.**
 
 ```
 cloth-shop/
@@ -166,9 +167,95 @@ to that group, and the server rejects a mismatched pair.
 |---|---|---|
 | GET | `/api/v1/lookups` | all five dropdowns in one call |
 | POST | `/api/v1/brands` | create a brand; suggests and validates its 2-letter code |
+| POST | `/api/v1/wholesalers` | create a supplier mid-entry |
 | POST | `/api/v1/articles/preview-code` | code + does it already exist |
 | POST | `/api/v1/articles` | create, or add stock; idempotent |
 | GET | `/api/v1/articles?q=` | inventory list, prefix-searchable by code |
+| GET | `/api/v1/articles/{id}` | one article: prices, stock, full ledger, siblings |
+| POST | `/api/v1/sales/price-check` | current price, cost and stock for a cart |
+| POST | `/api/v1/sales` | ring up the cart; idempotent |
+| GET | `/api/v1/sales/{id}` | one bill, for reprinting |
+| GET | `/api/v1/sales/day?date=` | the day's takings, profit and every bill in it |
+
+---
+
+## Module 3 - Selling
+
+### The flow
+
+A customer walks in holding a shirt.
+
+1. **All articles** - search by code, or narrow with the five dropdowns.
+2. **Add to cart** sits beside **View** on every row, and on the article page itself
+   (plus on each of its other colours and sizes, which is what you offer when this one
+   does not fit).
+3. A bar across the bottom follows you around with the count on it.
+4. **Cart** - quantities, prices, customer, payment, done.
+5. The bill appears, printable. `Ctrl+P` prints the paper and nothing else.
+
+### The cart lives in the browser
+
+Only three things are stored per line: the article, the count, and the price if someone
+has typed one. Names, stock levels and shelf prices are deliberately *not* stored - the
+cart re-asks the server for those every time it opens.
+
+A cart written to `localStorage` can be a day old. Quoting a customer a price out of it
+would be quoting them yesterday's price, and a refresh or a closed lid in the middle of
+a sale must not mean asking someone to hand over their armful of clothes again. Storing
+the identity and re-reading the money is the only arrangement that gets both.
+
+### Prices are negotiable, costs are not
+
+Every line price on the cart screen can be typed over, because that is what happens
+across a counter. The server takes the price as given and never overrules it: handing
+someone a bill they did not agree to is worse than any margin.
+
+What the server *does* own is the cost. `unit_cost` on each bill line is the weighted
+average in force at the moment the goods went out, written once and never editable.
+That is what fixes the profit on the bill forever, whatever the article costs to
+restock later.
+
+So the counter is shown the floor while it haggles - what each piece cost, what the
+line leaves, and what the whole bill leaves - in red once a price drops under cost.
+**A price below cost is allowed.** Clearing old stock at a loss is a decision the shop
+is entitled to make, and refusing it in software only teaches staff to work around the
+till.
+
+### A bill is written once
+
+`sale` and `sale_line` are never updated. The article's name, colour and size are
+*copied* onto the line rather than joined, so a bill reprinted in six months still
+reads the way it was handed over - even if the brand has since been renamed or the
+article discontinued. A correction is a return, which is its own document.
+
+Bill numbers come from a database sequence, not `count(*) + 1`: two people billing in
+the same second must not be handed the same number. Numbers are never reused, and a gap
+means a transaction rolled back, which is the truth.
+
+A double-tapped **Complete sale** cannot sell the same goods twice - one
+`Idempotency-Key` is minted per cart and replayed until that cart is billed.
+
+### What the sale leaves behind
+
+Selling posts `SALE_OUT` through `InventoryService`, like everything else that moves
+stock. Two numbers go on the ledger row:
+
+- `unit_cost` - the cost basis as it left the shelf
+- `unit_price` - what the customer actually paid
+
+Together they let an article's own history answer both "what did each lot cost me" and
+"what did each sale fetch", without going back to the bill. The article detail page
+shows both columns, and the bill number beside them.
+
+Selling never touches `avg_cost`. The average only moves when stock comes *in*.
+
+### The day
+
+`GET /api/v1/sales/day` is the dashboard: takings, profit, pieces, average bill, and
+every bill with a link to reprint it. "Today" is the shop's own day
+(`app.shop.zone`, `Asia/Kolkata`), not UTC's - a sale rung up at nine in the evening
+belongs to the day the shutter came down on, and the number on the screen has to agree
+with the till.
 
 ---
 
@@ -185,9 +272,9 @@ to that group, and the server rejects a mismatched pair.
 | | Module | Status |
 |---|---|---|
 | 1 | Add article to inventory | done |
-| 2 | Article list, edit, tag printing | next |
-| 3 | Billing / POS | |
-| 4 | Returns and exchanges | |
+| 2 | Article list and detail | done |
+| 3 | Selling: cart, bill, day summary | done |
+| 4 | Returns and exchanges | next |
 | 5 | Purchase orders and suppliers | |
 | 6 | Discounts and offers | |
 | 7 | Customers and loyalty | |
