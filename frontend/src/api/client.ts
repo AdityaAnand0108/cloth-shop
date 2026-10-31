@@ -7,8 +7,9 @@ import { authClient } from '../auth'
 
 const BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 async function authorizationHeader(): Promise<string | undefined> {
-  const { data } = await authClient.token()
-  return data?.token ? `Bearer ${data.token}` : undefined
+  const { data } = await authClient.getSession()
+  const token = data?.session?.token
+  return token ? `Bearer ${token}` : undefined
 }
 
 export class HttpError extends Error {

@@ -67,7 +67,9 @@ export function DashboardPage({ onAdd, onViewArticles, onOpenCart, onOpenBill }:
           )}
         </div>
 
-        {!day
+        {error
+          ? <p className="muted">Refresh the page and sign in again if prompted.</p>
+          : !day
           ? <p className="muted">Loading&hellip;</p>
           : day.billCount === 0
             ? (
