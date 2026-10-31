@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { authClient } from './auth'
 import type { ArticleFilters, Bill } from './api/types'
 import { AddArticlePage } from './features/articles/AddArticlePage'
 import { ArticleDetailPage } from './features/articles/ArticleDetailPage'
@@ -8,6 +9,7 @@ import { CartBar } from './features/cart/CartBar'
 import { CartPage } from './features/cart/CartPage'
 import { CartProvider } from './features/cart/CartContext'
 import { DashboardPage } from './features/dashboard/DashboardPage'
+import { LoginPage } from './features/auth/LoginPage'
 
 type View =
   | { name: 'dashboard' }
@@ -19,14 +21,15 @@ type View =
   | { name: 'bill'; bill?: Bill; billId?: number }
 
 export default function App() {
-  return (
-    <CartProvider>
-      <Shell />
-    </CartProvider>
-  )
+  const { data: session, isPending } = authClient.useSession()
+
+  if (isPending) return <main className="login-page"><p className="muted">Checking your session…</p></main>
+  if (!session?.user) return <LoginPage />
+
+  return <CartProvider><Shell onSignOut={() => { void authClient.signOut() }} /></CartProvider>
 }
 
-function Shell() {
+function Shell({ onSignOut }: { onSignOut: () => void }) {
   const [view, setView] = useState<View>({ name: 'dashboard' })
   // Held here so it survives opening an article and coming back.
   const [filters, setFilters] = useState<ArticleFilters>(NO_FILTERS)
@@ -94,6 +97,7 @@ function Shell() {
 
   return (
     <>
+      <button type="button" className="sign-out" onClick={onSignOut}>Sign out</button>
       {page()}
       {showCartBar && <CartBar onOpenCart={toCart} />}
     </>

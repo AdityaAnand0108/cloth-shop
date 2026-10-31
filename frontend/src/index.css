@@ -53,6 +53,11 @@ code, .num, .mono { font-family: 'Cascadia Mono', Consolas, ui-monospace, monosp
 
 /* ---------- layout ---------- */
 .page { max-width: 1080px; margin: 0 auto; padding: 40px 24px 80px; display: flex; flex-direction: column; gap: 24px; }
+.login-page { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.login-card { width: min(100%, 420px); }
+.login-card h1 { margin: 0; font-size: 28px; }
+.login-card .primary { width: 100%; }
+.sign-out { position: fixed; top: 14px; right: 18px; z-index: 40; }
 .page-head h1 { margin: 0 0 8px; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
 .page-head .muted { margin: 0; max-width: 62ch; }
 .muted { color: var(--ink-3); }
