@@ -10,6 +10,8 @@ import com.clothshop.catalog.dto.ArticleDtos.PreviewResponse;
 import com.clothshop.catalog.service.ArticleService;
 import com.clothshop.platform.service.IdempotencyService;
 import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -17,6 +19,8 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/articles")
+@Tag(name = "Articles", description = "Inventory articles, search, and stock intake")
+@SecurityRequirement(name = "bearerAuth")
 public class ArticleController {
 
     private final ArticleService articles;
