@@ -4,20 +4,20 @@
    and confident typing — clear hierarchy, generous targets, calm colour. */
 
 :root {
-  --bg: #f5f6fa;
+  --bg: #f5f4ef;
   --surface: #ffffff;
-  --surface-2: #f1f2f7;
-  --surface-3: #e8eaf1;
-  --border: #e2e4ec;
-  --border-strong: #cbcedb;
+  --surface-2: #f3f4ef;
+  --surface-3: #e9ede7;
+  --border: #e2e6df;
+  --border-strong: #cbd4ca;
 
-  --ink: #191c2a;
-  --ink-2: #585f72;
-  --ink-3: #8a90a3;
+  --ink: #20332d;
+  --ink-2: #53645c;
+  --ink-3: #839087;
 
-  --accent: #3452d9;
-  --accent-strong: #283fae;
-  --accent-soft: #eaeefc;
+  --accent: #1d5142;
+  --accent-strong: #173d33;
+  --accent-soft: #e8f0e9;
 
   --success: #147a4f;
   --success-soft: #e4f6ee;
@@ -52,12 +52,12 @@ code, .num, .mono { font-family: 'Cascadia Mono', Consolas, ui-monospace, monosp
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 
 /* ---------- layout ---------- */
-.page { max-width: 1080px; margin: 0 auto; padding: 40px 24px 80px; display: flex; flex-direction: column; gap: 24px; }
+.page { max-width: 1240px; margin: 0 auto; padding: 42px 32px 100px; display: flex; flex-direction: column; gap: 24px; }
 .login-page { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
 .login-card { width: min(100%, 420px); }
 .login-card h1 { margin: 0; font-size: 28px; }
 .login-card .primary { width: 100%; }
-.sign-out { position: fixed; top: 14px; right: 18px; z-index: 40; }
+.sign-out { position: fixed; top: 14px; right: max(18px, calc((100vw - 1240px) / 2)); z-index: 40; border-color: var(--border); background: rgba(255,255,255,.92); }
 .page-head h1 { margin: 0 0 8px; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
 .page-head .muted { margin: 0; max-width: 62ch; }
 .muted { color: var(--ink-3); }
@@ -66,8 +66,8 @@ code, .num, .mono { font-family: 'Cascadia Mono', Consolas, ui-monospace, monosp
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(32,51,45,.035), 0 16px 32px -28px rgba(32,51,45,.2);
   padding: 26px;
   display: flex;
   flex-direction: column;
