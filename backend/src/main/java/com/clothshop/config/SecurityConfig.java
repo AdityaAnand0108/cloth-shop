@@ -48,13 +48,13 @@ public class SecurityConfig {
     @ConditionalOnProperty(name = "app.security.enabled", havingValue = "true")
     JwtDecoder neonAuthJwtDecoder(@Value("${NEON_AUTH_JWKS_URL}") String jwksUrl,
                                   @Value("${NEON_AUTH_BASE_URL}") String issuer) throws Exception {
-        // Select the signing key from Neon's published JWKS based on the token
-        // header. The issuer may rotate keys or signing algorithms over time.
+        // Managed Neon Auth currently publishes Ed25519 signing keys. Pin the
+        // verifier to that algorithm and resolve the matching key by kid from JWKS.
         JWKSource<SecurityContext> jwkSource = JWKSourceBuilder.<SecurityContext>create(
                 URI.create(jwksUrl).toURL()).build();
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwksUrl)
                 .jwtProcessorCustomizer(processor -> processor.setJWSKeySelector(
-                        new JWSVerificationKeySelector<>(JWSAlgorithm.Family.SIGNATURE, jwkSource)))
+                        new JWSVerificationKeySelector<>(JWSAlgorithm.EdDSA, jwkSource)))
                 .build();
         OAuth2TokenValidator<Jwt> validator = JwtValidators.createDefaultWithIssuer(issuer);
         decoder.setJwtValidator(validator);
