@@ -3,13 +3,18 @@ import type {
   ArticleListItem, Bill, CartArticle, CheckoutRequest, DaySummary, LookupItem,
   Lookups, Page, PreviewResponse, WholesalerItem,
 } from './types'
-import { authClient } from '../auth'
+import { getApiAccessToken } from '../auth'
 
 const BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1'
-async function authorizationHeader(): Promise<string | undefined> {
-  const { data, error } = await authClient.token()
-  if (error) throw new Error('Could not get an API access token. Please sign in again.')
-  return data?.token ? `Bearer ${data.token}` : undefined
+async function authorizationHeader(): Promise<string> {
+  // Neon Auth exposes the session JWT through getJWTToken(). Calling the
+  // underlying Better Auth `token()` endpoint does not reliably return the
+  // session JWT, which can leave API requests without Authorization entirely.
+  const token = await getApiAccessToken()
+  if (!token) {
+    throw new Error('Your shop session has no API token. Please sign out and sign in again.')
+  }
+  return `Bearer ${token}`
 }
 
 export class HttpError extends Error {
@@ -24,7 +29,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: {
       'Content-Type': 'application/json',
-      ...(authorization ? { Authorization: authorization } : {}),
+      Authorization: authorization,
       ...(init?.headers ?? {}),
     },
   })
