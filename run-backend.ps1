@@ -15,7 +15,13 @@ function Import-DotEnv([string] $path) {
         $line = $_.Trim()
         if ($line -and -not $line.StartsWith('#') -and $line.Contains('=')) {
             $name, $value = $line.Split('=', 2)
-            [Environment]::SetEnvironmentVariable($name.Trim(), $value.Trim(), 'Process')
+            $value = $value.Trim()
+            if ($value.Length -ge 2 -and
+                (($value.StartsWith('"') -and $value.EndsWith('"')) -or
+                 ($value.StartsWith("'") -and $value.EndsWith("'")))) {
+                $value = $value.Substring(1, $value.Length - 2)
+            }
+            [Environment]::SetEnvironmentVariable($name.Trim(), $value, 'Process')
         }
     }
 }
