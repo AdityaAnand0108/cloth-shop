@@ -7,9 +7,9 @@ import { authClient } from '../auth'
 
 const BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 async function authorizationHeader(): Promise<string | undefined> {
-  const { data } = await authClient.getSession()
-  const token = data?.session?.token
-  return token ? `Bearer ${token}` : undefined
+  const { data, error } = await authClient.token()
+  if (error) throw new Error('Could not get an API access token. Please sign in again.')
+  return data?.token ? `Bearer ${data.token}` : undefined
 }
 
 export class HttpError extends Error {
@@ -28,10 +28,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...(init?.headers ?? {}),
     },
   })
-
-  if (res.status === 401 && authorization) {
-    void authClient.signOut()
-  }
 
   if (!res.ok) {
     let body: ApiError

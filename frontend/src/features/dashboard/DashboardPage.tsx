@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
-import type { DaySummary } from '../../api/types'
+import type { ArticleListItem, DaySummary } from '../../api/types'
 import { useCart } from '../cart/CartContext'
 import { qty, rupees, time } from '../../money'
 
@@ -21,11 +21,18 @@ type Props = {
 export function DashboardPage({ onAdd, onViewArticles, onOpenCart, onOpenBill }: Props) {
   const cart = useCart()
   const [day, setDay] = useState<DaySummary | null>(null)
+  const [articles, setArticles] = useState<ArticleListItem[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    api.day().then(setDay).catch((e: Error) => setError(e.message))
+    Promise.all([api.day(), api.listArticles()])
+      .then(([sales, stock]) => { setDay(sales); setArticles(stock.content) })
+      .catch((e: Error) => setError(e.message))
   }, [])
+
+  const stockUnits = articles?.reduce((sum, article) => sum + article.qtyOnHand, 0) ?? 0
+  const stockCost = articles?.reduce((sum, article) => sum + article.qtyOnHand * article.avgCost, 0) ?? 0
+  const outOfStock = articles?.filter(article => article.qtyOnHand <= 0).length ?? 0
 
   return (
     <div className="page">
@@ -59,7 +66,7 @@ export function DashboardPage({ onAdd, onViewArticles, onOpenCart, onOpenBill }:
 
       <section className="card">
         <div className="list-head">
-          <h2 className="section-title">Today</h2>
+          <h2 className="section-title">Store overview</h2>
           {day && day.billCount > 0 && (
             <span className="muted small">
               {day.billCount} {day.billCount === 1 ? 'bill' : 'bills'}
@@ -69,33 +76,29 @@ export function DashboardPage({ onAdd, onViewArticles, onOpenCart, onOpenBill }:
 
         {error
           ? <p className="muted">Refresh the page and sign in again if prompted.</p>
-          : !day
+          : !day || !articles
           ? <p className="muted">Loading&hellip;</p>
-          : day.billCount === 0
-            ? (
-              <p className="muted">
-                Nothing sold yet today. The first bill you complete will show up here.
-              </p>
-            )
-            : (
+          : (
               <>
                 <div className="stats">
-                  <Stat label="Taken" value={rupees(day.takings)} strong />
-                  <Stat label="Profit" value={rupees(day.profit)}
+                  <Stat label="Sales today" value={rupees(day.takings)} strong />
+                  <Stat label="Profit today" value={rupees(day.profit)}
                     tone={day.profit >= 0 ? 'ok' : 'bad'}
-                    hint={day.takings > 0
-                      ? `${((day.profit / day.takings) * 100).toFixed(1)}% margin`
-                      : undefined} />
+                    hint={day.takings > 0 ? `${((day.profit / day.takings) * 100).toFixed(1)}% margin` : 'No sales yet'} />
+                  <Stat label="Bills today" value={qty(day.billCount)} />
                   <Stat label="Pieces sold" value={qty(day.itemCount)} />
-                  <Stat label="Average bill"
-                    value={rupees(day.takings / day.billCount)} />
-                  {day.discountGiven > 0 && (
-                    <Stat label="Discount given" value={rupees(day.discountGiven)}
-                      hint="Off the bill totals, not counting line discounts" />
-                  )}
+                  <Stat label="Average bill" value={rupees(day.billCount ? day.takings / day.billCount : 0)} />
+                  <Stat label="Articles stocked" value={qty(articles.length)} />
+                  <Stat label="Units on hand" value={qty(stockUnits)} />
+                  <Stat label="Stock at cost" value={rupees(stockCost)} hint="Estimated from current average cost" />
+                  <Stat label="Out of stock" value={qty(outOfStock)} tone={outOfStock ? 'bad' : 'ok'} />
                 </div>
 
+                {day.billCount === 0 && <p className="muted">No sales recorded today yet.</p>}
+
+                {day.bills.length > 0 && (
                 <div className="table-scroll">
+                  <h3 className="section-title">Recent bills today</h3>
                   <table>
                     <thead>
                       <tr>
@@ -137,6 +140,7 @@ export function DashboardPage({ onAdd, onViewArticles, onOpenCart, onOpenBill }:
                     </tbody>
                   </table>
                 </div>
+                )}
               </>
             )}
       </section>
