@@ -53,18 +53,17 @@ public class SecurityConfig {
         @ConditionalOnProperty(name = "app.security.enabled", havingValue = "true")
         JwtDecoder neonAuthJwtDecoder(@Value("${NEON_AUTH_JWKS_URL}") String jwksUrl,
                         @Value("${NEON_AUTH_BASE_URL}") String issuer) throws Exception {
-                // Build a single JWK source from Neon's JWKS endpoint and pin it to ES256
-                // (the algorithm Neon Auth uses). Avoid NimbusJwtDecoder.withJwkSetUri()
-                // because
-                // it creates a second competing internal JWK source that causes the decoder to
-                // never find the right key, resulting in a 401 "no matching key(s) found"
-                // error.
+                // Neon Auth signs JWTs with alg="EdDSA" (Ed25519 curve, RFC 8037).
+                // JWSAlgorithm.EdDSA is the Nimbus constant whose .getName() returns "EdDSA",
+                // matching the alg header in the token exactly.
+                // A single JWKSource + DefaultJWTProcessor avoids the duplicate-source conflict
+                // that NimbusJwtDecoder.withJwkSetUri() would introduce internally.
                 JWKSource<SecurityContext> jwkSource = JWKSourceBuilder
                                 .<SecurityContext>create(URI.create(jwksUrl).toURL())
                                 .build();
 
                 JWSVerificationKeySelector<SecurityContext> keySelector = new JWSVerificationKeySelector<>(
-                                JWSAlgorithm.ES256, jwkSource);
+                                JWSAlgorithm.EdDSA, jwkSource);
 
                 ConfigurableJWTProcessor<SecurityContext> jwtProcessor = new DefaultJWTProcessor<>();
                 jwtProcessor.setJWSKeySelector(keySelector);
