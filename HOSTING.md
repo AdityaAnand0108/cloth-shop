@@ -39,14 +39,9 @@ zero cost; it does not promise uninterrupted service or backups.
      `?sslmode=require`.
    - `DB_USER`: Neon role name.
    - `DB_PASSWORD`: Neon role password.
-4. Set `NEON_AUTH_BASE_URL` to the Neon Auth project host or the full branch auth URL
-   ending in `/neondb/auth`. Set `NEON_AUTH_JWKS_URL` to the matching branch's
-   `/neondb/auth/.well-known/jwks.json` endpoint. The backend normalizes a host-only
-   value to the full branch auth URL when validating the JWT issuer. The frontend uses
-   the full auth URL as `VITE_NEON_AUTH_URL` in Cloudflare Pages in the next step.
-5. Set `APP_CORS_ALLOWED_ORIGINS` to the exact Cloudflare Pages origin after creating
+4. Set `APP_CORS_ALLOWED_ORIGINS` to the exact Cloudflare Pages origin after creating
    the site (for the first API deploy, a temporary `http://localhost:5173` value is OK).
-6. Wait for the service to deploy and copy its HTTPS address, such as
+5. Wait for the service to deploy and copy its HTTPS address, such as
    `https://bflex-api.onrender.com`.
 
 The `/health` endpoint is used by Render to check that the service has started. Flyway
@@ -72,19 +67,21 @@ In Render → the `bflex-api` service → Environment, change
 `APP_CORS_ALLOWED_ORIGINS` to the exact Cloudflare Pages origin, for example
 `https://bflex-cloth-shop.pages.dev` (no trailing slash). Save and redeploy.
 
-The website will show Neon Auth's sign-in page. Create or configure the single shop
-user in Neon Auth, then sign in over HTTPS.
+The website uses Neon Auth for its sign-in page. The Spring API endpoints are public
+and do not require a bearer token. Anyone who can reach the API can read or change
+shop data. `APP_CORS_ALLOWED_ORIGINS` controls browser cross-origin access; it does not
+authenticate API callers.
 
 ## Local development
 
-Local backend authentication stays disabled by default. `frontend/vite.config.ts`
-continues to proxy `/api` to the local backend; leave `VITE_API_BASE_URL` unset when
-running locally.
+The API is public in local development too. `frontend/vite.config.ts` continues to
+proxy `/api` to the local backend; leave `VITE_API_BASE_URL` unset when running locally.
 
 ## Before using real shop records
 
-- Confirm the production Render environment has `APP_SECURITY_ENABLED=true`, both
-  Neon Auth URLs, both Neon JDBC URLs, database credentials, and the exact Pages origin.
+- Confirm the production Render environment has both Neon JDBC URLs, database
+  credentials, and the exact Pages origin. Configure `VITE_NEON_AUTH_URL` in Cloudflare
+  Pages for the sign-in page.
 - Verify the HTTPS site can sign in, browse inventory, and complete a small test sale.
 - Keep an independent backup/export of the database. The free hosting setup does not
   provide a complete business continuity plan.

@@ -8,7 +8,6 @@ if (!authUrl) {
 
 const authAdapter = BetterAuthReactAdapter()(authUrl)
 
-// Keep the React adapter API for session/sign-in hooks and expose Neon Auth's
-// session JWT getter for requests to the Spring API.
+// The React adapter handles the sign-in UI. The Spring API is public, so API
+// requests do not need a Neon Auth token.
 export const authClient = authAdapter.getBetterAuthInstance()
-export const getApiAccessToken = () => authAdapter.getJWTToken(false)
