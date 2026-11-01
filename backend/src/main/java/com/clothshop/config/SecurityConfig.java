@@ -53,24 +53,33 @@ public class SecurityConfig {
         @ConditionalOnProperty(name = "app.security.enabled", havingValue = "true")
         JwtDecoder neonAuthJwtDecoder(@Value("${NEON_AUTH_JWKS_URL}") String jwksUrl,
                         @Value("${NEON_AUTH_BASE_URL}") String issuer) throws Exception {
-                // Neon Auth signs JWTs with alg="EdDSA" (Ed25519 curve, RFC 8037).
-                // JWSAlgorithm.EdDSA is the Nimbus constant whose .getName() returns "EdDSA",
-                // matching the alg header in the token exactly.
-                // A single JWKSource + DefaultJWTProcessor avoids the duplicate-source conflict
-                // that NimbusJwtDecoder.withJwkSetUri() would introduce internally.
+                // Use the algorithm published by the matching signing key in JWKS. Neon Auth
+                // signing algorithms can vary across deployments and key rotations, so pinning
+                // this selector to EdDSA/ES256 can reject otherwise valid access tokens.
                 JWKSource<SecurityContext> jwkSource = JWKSourceBuilder
                                 .<SecurityContext>create(URI.create(jwksUrl).toURL())
                                 .build();
 
                 JWSVerificationKeySelector<SecurityContext> keySelector = new JWSVerificationKeySelector<>(
-                                JWSAlgorithm.EdDSA, jwkSource);
+                                JWSAlgorithm.Family.SIGNATURE, jwkSource);
 
                 ConfigurableJWTProcessor<SecurityContext> jwtProcessor = new DefaultJWTProcessor<>();
                 jwtProcessor.setJWSKeySelector(keySelector);
 
                 NimbusJwtDecoder decoder = new NimbusJwtDecoder(jwtProcessor);
-                OAuth2TokenValidator<Jwt> validator = JwtValidators.createDefaultWithIssuer(issuer);
+                OAuth2TokenValidator<Jwt> validator = JwtValidators.createDefaultWithIssuer(neonAuthIssuer(issuer));
                 decoder.setJwtValidator(validator);
                 return decoder;
+        }
+
+        /** Neon Auth's branch URL is the issuer; accept the project host as a convenience too. */
+        private static String neonAuthIssuer(String configuredBaseUrl) {
+                String baseUrl = configuredBaseUrl.replaceAll("/+$", "");
+                URI uri = URI.create(baseUrl);
+                String path = uri.getPath();
+                if (path == null || path.isEmpty() || "/".equals(path)) {
+                        return baseUrl + "/neondb/auth";
+                }
+                return baseUrl;
         }
 }

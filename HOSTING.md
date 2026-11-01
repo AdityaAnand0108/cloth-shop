@@ -39,10 +39,11 @@ zero cost; it does not promise uninterrupted service or backups.
      `?sslmode=require`.
    - `DB_USER`: Neon role name.
    - `DB_PASSWORD`: Neon role password.
-4. Set `NEON_AUTH_BASE_URL` to the Neon Auth issuer/base URL and
-   `NEON_AUTH_JWKS_URL` to that issuer's `/.well-known/jwks.json` endpoint. The frontend
-   uses Neon Auth too; its public base URL is set as `VITE_NEON_AUTH_URL` in Cloudflare
-   Pages in the next step.
+4. Set `NEON_AUTH_BASE_URL` to the Neon Auth project host or the full branch auth URL
+   ending in `/neondb/auth`. Set `NEON_AUTH_JWKS_URL` to the matching branch's
+   `/neondb/auth/.well-known/jwks.json` endpoint. The backend normalizes a host-only
+   value to the full branch auth URL when validating the JWT issuer. The frontend uses
+   the full auth URL as `VITE_NEON_AUTH_URL` in Cloudflare Pages in the next step.
 5. Set `APP_CORS_ALLOWED_ORIGINS` to the exact Cloudflare Pages origin after creating
    the site (for the first API deploy, a temporary `http://localhost:5173` value is OK).
 6. Wait for the service to deploy and copy its HTTPS address, such as
