@@ -5,6 +5,8 @@ import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.jwk.source.JWKSourceBuilder;
 import com.nimbusds.jose.proc.JWSVerificationKeySelector;
 import com.nimbusds.jose.proc.SecurityContext;
+import com.nimbusds.jwt.proc.ConfigurableJWTProcessor;
+import com.nimbusds.jwt.proc.DefaultJWTProcessor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -25,39 +27,51 @@ import java.net.URI;
 @Configuration
 public class SecurityConfig {
 
-    @Bean
-    SecurityFilterChain apiSecurity(HttpSecurity http,
-                                    @Value("${app.security.enabled:false}") boolean enabled) throws Exception {
-        http.csrf(csrf -> csrf.disable())
-                .cors(Customizer.withDefaults())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+        @Bean
+        SecurityFilterChain apiSecurity(HttpSecurity http,
+                        @Value("${app.security.enabled:false}") boolean enabled) throws Exception {
+                http.csrf(csrf -> csrf.disable())
+                                .cors(Customizer.withDefaults())
+                                .sessionManagement(session -> session
+                                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
-        if (enabled) {
-            http.authorizeHttpRequests(auth -> auth
-                            .requestMatchers("/health", "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                            .anyRequest().authenticated())
-                    .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()));
-        } else {
-            // Keep local development friction-free; production enables Neon JWT validation.
-            http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+                if (enabled) {
+                        http.authorizeHttpRequests(auth -> auth
+                                        .requestMatchers("/health", "/swagger-ui.html", "/swagger-ui/**",
+                                                        "/v3/api-docs/**")
+                                        .permitAll()
+                                        .anyRequest().authenticated())
+                                        .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()));
+                } else {
+                        // Keep local development friction-free; production enables Neon JWT validation.
+                        http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+                }
+                return http.build();
         }
-        return http.build();
-    }
 
-    @Bean
-    @ConditionalOnProperty(name = "app.security.enabled", havingValue = "true")
-    JwtDecoder neonAuthJwtDecoder(@Value("${NEON_AUTH_JWKS_URL}") String jwksUrl,
-                                  @Value("${NEON_AUTH_BASE_URL}") String issuer) throws Exception {
-        // Resolve the signing key and supported signature algorithm from Neon's
-        // JWKS. This follows the published key metadata and allows key rotation.
-        JWKSource<SecurityContext> jwkSource = JWKSourceBuilder.<SecurityContext>create(
-                URI.create(jwksUrl).toURL()).build();
-        NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwksUrl)
-                .jwtProcessorCustomizer(processor -> processor.setJWSKeySelector(
-                        new JWSVerificationKeySelector<>(JWSAlgorithm.Family.SIGNATURE, jwkSource)))
-                .build();
-        OAuth2TokenValidator<Jwt> validator = JwtValidators.createDefaultWithIssuer(issuer);
-        decoder.setJwtValidator(validator);
-        return decoder;
-    }
+        @Bean
+        @ConditionalOnProperty(name = "app.security.enabled", havingValue = "true")
+        JwtDecoder neonAuthJwtDecoder(@Value("${NEON_AUTH_JWKS_URL}") String jwksUrl,
+                        @Value("${NEON_AUTH_BASE_URL}") String issuer) throws Exception {
+                // Build a single JWK source from Neon's JWKS endpoint and pin it to ES256
+                // (the algorithm Neon Auth uses). Avoid NimbusJwtDecoder.withJwkSetUri()
+                // because
+                // it creates a second competing internal JWK source that causes the decoder to
+                // never find the right key, resulting in a 401 "no matching key(s) found"
+                // error.
+                JWKSource<SecurityContext> jwkSource = JWKSourceBuilder
+                                .<SecurityContext>create(URI.create(jwksUrl).toURL())
+                                .build();
+
+                JWSVerificationKeySelector<SecurityContext> keySelector = new JWSVerificationKeySelector<>(
+                                JWSAlgorithm.ES256, jwkSource);
+
+                ConfigurableJWTProcessor<SecurityContext> jwtProcessor = new DefaultJWTProcessor<>();
+                jwtProcessor.setJWSKeySelector(keySelector);
+
+                NimbusJwtDecoder decoder = new NimbusJwtDecoder(jwtProcessor);
+                OAuth2TokenValidator<Jwt> validator = JwtValidators.createDefaultWithIssuer(issuer);
+                decoder.setJwtValidator(validator);
+                return decoder;
+        }
 }
