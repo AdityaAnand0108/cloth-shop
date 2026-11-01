@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { api, HttpError } from '../../api/client'
 import type {
-  AddArticleResponse, ExistingArticle, LookupItem, Lookups, PreviewResponse,
+  AddArticleBatchResponse, Lookups, PreviewResponse,
 } from '../../api/types'
-import { CodePreview } from './CodePreview'
-import { DuplicateDialog } from './DuplicateDialog'
+import { BatchDuplicateDialog, type DuplicateSize } from './BatchDuplicateDialog'
 import { NewBrandDialog } from './NewBrandDialog'
 import { NewWholesalerDialog } from './NewWholesalerDialog'
 
@@ -13,11 +12,10 @@ type Selection = {
   brandId: string
   materialId: string
   colourId: string
-  sizeId: string
 }
 
 const EMPTY: Selection = {
-  articleTypeId: '', brandId: '', materialId: '', colourId: '', sizeId: '',
+  articleTypeId: '', brandId: '', materialId: '', colourId: '',
 }
 
 const newIdempotencyKey = () =>
@@ -31,7 +29,7 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
   const [buyingPrice, setBuyingPrice] = useState('')
   const [sellingPrice, setSellingPrice] = useState('')
   const [sellingPriceLocked, setSellingPriceLocked] = useState(true)
-  const [quantity, setQuantity] = useState('1')
+  const [quantities, setQuantities] = useState<Record<number, string>>({})
   const [wholesalerId, setWholesalerId] = useState('')
   // Whoever is at the counter usually enters a run of articles, so this is
   // deliberately not cleared between saves.
@@ -40,8 +38,10 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
   const [showNewBrand, setShowNewBrand] = useState(false)
   const [showNewWholesaler, setShowNewWholesaler] = useState(false)
 
-  const [preview, setPreview] = useState<PreviewResponse | null>(null)
-  const [duplicate, setDuplicate] = useState<ExistingArticle | null>(null)
+  const [previews, setPreviews] = useState<Record<number, PreviewResponse>>({})
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewVersion, setPreviewVersion] = useState(0)
+  const [duplicates, setDuplicates] = useState<DuplicateSize[] | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [banner, setBanner] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
 
@@ -67,12 +67,13 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
     [lookups, sizeGroupId],
   )
 
-  // Clear a size that no longer belongs to the chosen article type.
+  // Clear quantities for sizes that do not belong to the newly selected article type.
   useEffect(() => {
-    if (sel.sizeId && !availableSizes.some(s => String(s.id) === sel.sizeId)) {
-      setSel(s => ({ ...s, sizeId: '' }))
-    }
-  }, [availableSizes, sel.sizeId])
+    const validIds = new Set(availableSizes.map(size => size.id))
+    setQuantities(current => Object.fromEntries(
+      Object.entries(current).filter(([id]) => validIds.has(Number(id))),
+    ))
+  }, [availableSizes])
 
   // Selling price follows buying price until the user takes it over.
   useEffect(() => {
@@ -83,39 +84,49 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
       : (buy * lookups.defaultMarkup).toFixed(2))
   }, [buyingPrice, sellingPriceLocked, lookups])
 
-  const codeFragments = useMemo(() => {
-    const pick = (list: LookupItem[] | undefined, id: string) =>
-      list?.find(i => String(i.id) === id)?.code ?? null
-    return [
-      pick(lookups?.articleTypes, sel.articleTypeId),
-      pick(lookups?.brands, sel.brandId),
-      pick(lookups?.materials, sel.materialId),
-      pick(lookups?.colours, sel.colourId),
-      pick(lookups?.sizes, sel.sizeId),
-    ]
-  }, [lookups, sel])
-
-  const allSelected = codeFragments.every(Boolean)
+  const selectedSizes = useMemo(() => availableSizes
+    .map(size => ({ sizeId: size.id, sizeName: size.name, sizeCode: size.code, quantity: quantities[size.id] ?? '' }))
+    .filter(size => Number(size.quantity) > 0), [availableSizes, quantities])
+  const selectedSizeKey = selectedSizes.map(size => size.sizeId).join(',')
+  const attributesSelected = Boolean(sel.articleTypeId && sel.brandId && sel.materialId && sel.colourId)
+  const articleCodeParts = lookups ? [
+    lookups.articleTypes.find(a => String(a.id) === sel.articleTypeId)?.code,
+    lookups.brands.find(b => String(b.id) === sel.brandId)?.code,
+    lookups.materials.find(m => String(m.id) === sel.materialId)?.code,
+    lookups.colours.find(c => String(c.id) === sel.colourId)?.code,
+  ] : []
+  const articleCodePrefix = articleCodeParts.every(Boolean) ? articleCodeParts.join('') : ''
 
   const selectedWholesaler = lookups?.wholesalers.find(w => String(w.id) === wholesalerId) ?? null
 
-  // Only the existence check needs the server; the code itself assembles locally.
+  // Check each size with stock entered so existing variants can be reviewed together.
   useEffect(() => {
-    if (!allSelected) { setPreview(null); return }
+    if (!attributesSelected || selectedSizes.length === 0) {
+      setPreviews({})
+      setPreviewLoading(false)
+      return
+    }
     let cancelled = false
+    setPreviewLoading(true)
+    setPreviews({})
     const timer = setTimeout(() => {
-      api.previewCode({
+      Promise.all(selectedSizes.map(size => api.previewCode({
         articleTypeId: Number(sel.articleTypeId),
         brandId: Number(sel.brandId),
         materialId: Number(sel.materialId),
         colourId: Number(sel.colourId),
-        sizeId: Number(sel.sizeId),
-      })
-        .then(p => { if (!cancelled) setPreview(p) })
-        .catch(() => { if (!cancelled) setPreview(null) })
+        sizeId: size.sizeId,
+      }).then(preview => [size.sizeId, preview] as const)))
+        .then(rows => {
+          if (!cancelled) setPreviews(Object.fromEntries(rows))
+        })
+        .catch(() => {
+          if (!cancelled) setPreviews({})
+        })
+        .finally(() => { if (!cancelled) setPreviewLoading(false) })
     }, 150)
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [allSelected, sel])
+  }, [attributesSelected, selectedSizeKey, previewVersion, sel.articleTypeId, sel.brandId, sel.materialId, sel.colourId])
 
   const margin = useMemo(() => {
     const buy = Number(buyingPrice), sell = Number(sellingPrice)
@@ -124,54 +135,65 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
   }, [buyingPrice, sellingPrice])
 
   /**
-   * The form's own submit button. A brand-new article is created immediately; an
-   * existing one always goes through the duplicate dialog first, so the cost blend
-   * and the selling-price choice are seen rather than applied silently.
+   * Existing variants are reviewed together before their stock is added.
    */
   function handleFormSubmit(e: FormEvent) {
     e.preventDefault()
-    if (preview?.exists && preview.existing) {
-      setDuplicate(preview.existing)
+    if (previewLoading || selectedSizes.length === 0) return
+    if (selectedSizes.some(size => !previews[size.sizeId])) {
+      setBanner({ kind: 'err', text: 'Could not check the selected sizes. Please try again.' })
+      setPreviewVersion(version => version + 1)
+      return
+    }
+    const existingSizes = selectedSizes.flatMap(size => {
+      const existing = previews[size.sizeId]?.existing
+      return existing ? [{ existing, quantity: Number(size.quantity) }] : []
+    })
+    if (existingSizes.length > 0) {
+      setDuplicates(existingSizes)
     } else {
-      submit('CREATE')
+      void submit(false)
     }
   }
 
   /**
-   * @param sellingPriceOverride a new shelf price chosen in the duplicate dialog,
-   *   or null to leave the existing one alone. Ignored when creating.
+   * @param updateExistingSellingPrice whether to apply the form's price to existing sizes.
    */
-  async function submit(mode: 'CREATE' | 'ADD_STOCK', sellingPriceOverride: number | null = null) {
+  async function submit(updateExistingSellingPrice: boolean) {
     setSubmitting(true)
     setBanner(null)
     try {
-      const res: AddArticleResponse = await api.addArticle({
+      const res: AddArticleBatchResponse = await api.addArticleBatch({
         articleTypeId: Number(sel.articleTypeId),
         brandId: Number(sel.brandId),
         materialId: Number(sel.materialId),
         colourId: Number(sel.colourId),
-        sizeId: Number(sel.sizeId),
         buyingPrice: Number(buyingPrice),
-        sellingPrice: sellingPriceOverride ?? Number(sellingPrice),
-        quantity: Number(quantity),
+        sellingPrice: Number(sellingPrice),
         wholesalerId: Number(wholesalerId),
         staffId: Number(staffId),
-        mode,
-        updateSellingPrice: sellingPriceOverride !== null,
+        sizes: selectedSizes.map(size => ({
+          sizeId: size.sizeId,
+          quantity: Number(size.quantity),
+          mode: previews[size.sizeId]?.exists ? 'ADD_STOCK' : 'CREATE',
+          updateSellingPrice: Boolean(previews[size.sizeId]?.exists && updateExistingSellingPrice),
+        })),
       }, idempotencyKey.current)
 
       setBanner({
         kind: 'ok',
-        text: res.outcome === 'CREATED'
-          ? `Created ${res.articleCode} — ${res.displayName}. ${res.qtyOnHand} in stock.`
-          : `Added to ${res.articleCode}. Now ${res.qtyOnHand} in stock at average cost ₹${res.avgCost.toFixed(2)}${res.sellingPriceChanged ? `, selling price now ₹${res.sellingPrice.toFixed(2)}` : ''}.`,
+        text: `Saved ${res.items.length} sizes: ${res.items.map((item, index) =>
+          `${selectedSizes[index]?.sizeName ?? item.articleCode} +${selectedSizes[index]?.quantity ?? ''} (total ${item.qtyOnHand})`,
+        ).join(', ')}.`,
       })
 
-      setDuplicate(null)
+      setDuplicates(null)
       resetForm()
     } catch (e) {
-      if (e instanceof HttpError && e.body.code === 'ARTICLE_EXISTS') {
-        setDuplicate(e.body.details.existing as ExistingArticle)
+      if (e instanceof HttpError && ['ARTICLE_EXISTS', 'ARTICLE_MISSING'].includes(e.body.code)) {
+        setDuplicates(null)
+        setBanner({ kind: 'err', text: 'A selected size changed while you were entering stock. Review the sizes and submit again.' })
+        setPreviewVersion(version => version + 1)
       } else {
         setBanner({ kind: 'err', text: e instanceof Error ? e.message : 'Something went wrong' })
       }
@@ -185,15 +207,19 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
     setBuyingPrice('')
     setSellingPrice('')
     setSellingPriceLocked(true)
-    setQuantity('1')
+    setQuantities({})
     setWholesalerId('')
-    setPreview(null)
+    setPreviews({})
+    setDuplicates(null)
     idempotencyKey.current = newIdempotencyKey()
     firstFieldRef.current?.focus()
   }
 
-  const canSubmit = allSelected && Number(buyingPrice) >= 0 && buyingPrice !== ''
-    && Number(quantity) > 0 && wholesalerId !== '' && staffId !== '' && !submitting
+  const canSubmit = attributesSelected && selectedSizes.length > 0
+    && selectedSizes.every(size => Boolean(previews[size.sizeId]))
+    && Number(buyingPrice) >= 0 && buyingPrice !== ''
+    && Number(sellingPrice) >= 0 && sellingPrice !== ''
+    && wholesalerId !== '' && staffId !== '' && !previewLoading && !submitting
 
   if (loadError) {
     return (
@@ -214,8 +240,8 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
         <button type="button" className="link" onClick={onBack}>&larr; Dashboard</button>
         <h1>Add article to inventory</h1>
         <p className="muted">
-          Pick the five attributes and the article code builds itself. If the code already
-          exists you will be asked to add stock instead of creating a duplicate.
+          Pick the article details, then enter stock for every size in one go. Existing
+          sizes are added to stock; new sizes are created together.
         </p>
       </header>
 
@@ -292,33 +318,54 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
             </div>
           </label>
 
-          <label className="field">
-            <span>Size</span>
-            <select
-              value={sel.sizeId}
-              onChange={e => setSel(s => ({ ...s, sizeId: e.target.value }))}
-              disabled={!sel.articleTypeId}
-              required
-            >
-              <option value="">
-                {sel.articleTypeId ? 'Select…' : 'Pick an article type first'}
-              </option>
-              {availableSizes.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          </label>
-
-          <label className="field">
-            <span>Quantity</span>
-            <input
-              type="number" min="1" step="1" inputMode="numeric"
-              value={quantity}
-              onChange={e => setQuantity(e.target.value)}
-              required
-            />
-          </label>
         </div>
+
+        <section className="batch-sizes" aria-labelledby="batch-sizes-title">
+          <div className="batch-sizes-heading">
+            <div>
+              <h2 id="batch-sizes-title">Sizes and quantities</h2>
+              <p className="muted">Enter a quantity for each size in this purchase. Leave the rest blank.</p>
+            </div>
+            {selectedSizes.length > 0 && <span className="tag ok">{selectedSizes.length} selected</span>}
+          </div>
+          {availableSizes.length === 0 ? (
+            <p className="muted">Choose an article type to see its sizes.</p>
+          ) : (
+            <div className="table-scroll">
+              <table className="batch-size-table">
+                <thead><tr><th>Size</th><th>Article code</th><th>Quantity to add</th><th>Inventory status</th></tr></thead>
+                <tbody>
+                  {availableSizes.map(size => {
+                    const quantity = quantities[size.id] ?? ''
+                    const preview = previews[size.id]
+                    const status = !quantity || Number(quantity) <= 0
+                      ? 'Not selected'
+                      : previewLoading ? 'Checking…'
+                        : preview?.exists ? `Already in stock · ${preview.existing?.qtyOnHand ?? 0}`
+                          : preview ? 'New size' : 'Waiting to check'
+                    return (
+                      <tr key={size.id}>
+                        <th scope="row">{size.name}</th>
+                        <td><code>{articleCodePrefix ? `${articleCodePrefix}${size.code}` : '—'}</code></td>
+                        <td>
+                          <input
+                            aria-label={`Quantity for size ${size.name}`}
+                            type="number" min="1" step="1" inputMode="numeric"
+                            placeholder="0"
+                            value={quantity}
+                            onChange={e => setQuantities(current => ({ ...current, [size.id]: e.target.value }))}
+                            disabled={!attributesSelected || submitting}
+                          />
+                        </td>
+                        <td className={preview?.exists ? 'warn' : 'muted'}>{status}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
 
         <div className="grid">
           <label className="field">
@@ -409,11 +456,9 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
           </div>
         </div>
 
-        <CodePreview fragments={codeFragments} preview={preview} />
-
         <div className="actions">
           <button type="submit" className="primary" disabled={!canSubmit}>
-            {submitting ? 'Saving…' : preview?.exists ? 'Add stock to this article' : 'Add this inventory'}
+            {submitting ? 'Saving…' : previewLoading ? 'Checking sizes…' : `Save ${selectedSizes.length} selected sizes`}
           </button>
           <button type="button" className="ghost" onClick={resetForm} disabled={submitting}>
             Clear
@@ -451,15 +496,13 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
         />
       )}
 
-      {duplicate && (
-        <DuplicateDialog
-          existing={duplicate}
-          incomingBuyingPrice={Number(buyingPrice)}
-          markup={lookups.defaultMarkup}
-          quantity={Number(quantity)}
+      {duplicates && (
+        <BatchDuplicateDialog
+          sizes={duplicates}
+          sellingPrice={Number(sellingPrice)}
           busy={submitting}
-          onCancel={() => setDuplicate(null)}
-          onConfirm={newPrice => submit('ADD_STOCK', newPrice)}
+          onCancel={() => setDuplicates(null)}
+          onConfirm={updateExistingSellingPrice => void submit(updateExistingSellingPrice)}
         />
       )}
     </div>

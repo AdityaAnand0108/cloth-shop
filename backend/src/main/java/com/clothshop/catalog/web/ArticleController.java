@@ -2,6 +2,8 @@ package com.clothshop.catalog.web;
 
 import com.clothshop.catalog.dto.ArticleDtos.AddArticleRequest;
 import com.clothshop.catalog.dto.ArticleDtos.AddArticleResponse;
+import com.clothshop.catalog.dto.ArticleDtos.AddArticleBatchRequest;
+import com.clothshop.catalog.dto.ArticleDtos.AddArticleBatchResponse;
 import com.clothshop.catalog.dto.ArticleDtos.ArticleDetail;
 import com.clothshop.catalog.dto.ArticleDtos.ArticleFilter;
 import com.clothshop.catalog.dto.ArticleDtos.ArticleListItem;
@@ -10,7 +12,6 @@ import com.clothshop.catalog.dto.ArticleDtos.PreviewResponse;
 import com.clothshop.catalog.service.ArticleService;
 import com.clothshop.platform.service.IdempotencyService;
 import jakarta.validation.Valid;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -20,7 +21,6 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/articles")
 @Tag(name = "Articles", description = "Inventory articles, search, and stock intake")
-@SecurityRequirement(name = "bearerAuth")
 public class ArticleController {
 
     private final ArticleService articles;
@@ -48,6 +48,17 @@ public class ArticleController {
         return idempotency.replay(key, AddArticleResponse.class).orElseGet(() -> {
             AddArticleResponse response = articles.add(request);
             idempotency.remember(key, "POST /api/v1/articles", response);
+            return response;
+        });
+    }
+
+    /** Add stock for several sizes from the same article purchase in one transaction. */
+    @PostMapping("/batch")
+    public AddArticleBatchResponse addBatch(@Valid @RequestBody AddArticleBatchRequest request,
+                                            @RequestHeader(value = "Idempotency-Key", required = false) String key) {
+        return idempotency.replay(key, AddArticleBatchResponse.class).orElseGet(() -> {
+            AddArticleBatchResponse response = articles.addBatch(request);
+            idempotency.remember(key, "POST /api/v1/articles/batch", response);
             return response;
         });
     }

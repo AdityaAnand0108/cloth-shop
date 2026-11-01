@@ -23,6 +23,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -122,6 +124,51 @@ public class ArticleService {
         return existing.isPresent()
                 ? addStock(existing.get(), request, location, wholesaler, user)
                 : createArticle(sel, code, request, location, wholesaler, user);
+    }
+
+    /** Add several size variants from one purchase, atomically. */
+    @Transactional
+    public AddArticleBatchResponse addBatch(AddArticleBatchRequest request) {
+        Set<Long> seenSizeIds = new HashSet<>();
+        List<Selection> selections = request.sizes().stream().map(line -> {
+            if (!seenSizeIds.add(line.sizeId())) {
+                throw ApiException.badRequest("DUPLICATE_SIZE", "Each size can be entered only once");
+            }
+            Selection selection = resolve(request.articleTypeId(), request.brandId(),
+                    request.materialId(), request.colourId(), line.sizeId());
+            requireSizeMatchesArticle(selection);
+            return selection;
+        }).toList();
+
+        // Check every selected size before writing any stock, so a stale duplicate preview
+        // cannot leave only part of a size run added.
+        for (int i = 0; i < request.sizes().size(); i++) {
+            AddArticleBatchLine line = request.sizes().get(i);
+            Selection selection = selections.get(i);
+            String code = codeGenerator.generate(selection.type(), selection.brand(),
+                    selection.material(), selection.colour(), selection.size());
+            Optional<ProductVariant> existing = variants.findByArticleCode(code);
+            if (existing.isPresent() && line.mode() == AddMode.CREATE) {
+                throw ApiException.conflict("ARTICLE_EXISTS",
+                        "Article " + code + " already exists. Review the selected sizes and try again.",
+                        Map.of("articleCode", code, "existing", describe(existing.get())));
+            }
+            if (existing.isEmpty() && line.mode() == AddMode.ADD_STOCK) {
+                throw ApiException.conflict("ARTICLE_MISSING",
+                        "Article " + code + " no longer exists. Review the selected sizes and try again.",
+                        Map.of("articleCode", code));
+            }
+        }
+
+        List<AddArticleResponse> added = new java.util.ArrayList<>();
+        for (AddArticleBatchLine line : request.sizes()) {
+            added.add(add(new AddArticleRequest(
+                    request.articleTypeId(), request.brandId(), request.materialId(), request.colourId(),
+                    line.sizeId(), request.buyingPrice(), request.sellingPrice(), line.quantity(),
+                    request.wholesalerId(), request.staffId(), line.mode(),
+                    line.updateSellingPrice(), request.note())));
+        }
+        return new AddArticleBatchResponse(added);
     }
 
     private AddArticleResponse createArticle(Selection sel, String code, AddArticleRequest request,

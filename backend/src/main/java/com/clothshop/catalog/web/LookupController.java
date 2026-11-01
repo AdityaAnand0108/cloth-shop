@@ -7,7 +7,6 @@ import com.clothshop.catalog.dto.ArticleDtos.LookupsResponse;
 import com.clothshop.catalog.dto.ArticleDtos.WholesalerItem;
 import com.clothshop.catalog.service.LookupService;
 import jakarta.validation.Valid;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -15,7 +14,6 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1")
 @Tag(name = "Lookups", description = "Dropdown data and store reference values")
-@SecurityRequirement(name = "bearerAuth")
 public class LookupController {
 
     private final LookupService lookups;

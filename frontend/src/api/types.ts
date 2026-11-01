@@ -81,6 +81,20 @@ export type AddArticleResponse = {
   sellingPriceChanged: boolean
 }
 
+export type AddArticleBatchRequest = Omit<AddArticleRequest,
+  'sizeId' | 'quantity' | 'mode' | 'updateSellingPrice'> & {
+  sizes: Array<{
+    sizeId: number
+    quantity: number
+    mode: AddMode
+    updateSellingPrice: boolean
+  }>
+}
+
+export type AddArticleBatchResponse = {
+  items: AddArticleResponse[]
+}
+
 /**
  * Held as strings because that is what a `<select>` and a text input give back —
  * an empty string simply means the filter is not set.

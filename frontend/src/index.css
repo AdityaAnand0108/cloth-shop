@@ -85,6 +85,18 @@ code, .num, .mono { font-family: 'Cascadia Mono', Consolas, ui-monospace, monosp
 /* ---------- form ---------- */
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 18px; }
 .grid.prices { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); max-width: 640px; }
+.batch-sizes { display: flex; flex-direction: column; gap: 12px; padding: 18px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
+.batch-sizes-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.batch-sizes-heading h2 { margin: 0 0 3px; font-size: 16px; }
+.batch-sizes-heading p { margin: 0; font-size: 13px; }
+.batch-size-table { min-width: 590px; background: var(--surface); border-radius: var(--radius-sm); overflow: hidden; }
+.batch-size-table th, .batch-size-table td { padding: 9px 12px; }
+.batch-size-table tbody th { border-bottom: 1px solid var(--border); color: var(--ink-2); font-size: 13px; letter-spacing: 0; text-transform: none; }
+.batch-size-table td input[type='number'] { width: 112px; padding: 7px 9px; }
+.batch-size-table td code { font-size: 12px; }
+.batch-size-table td.warn { color: var(--warning); font-weight: 600; }
+.batch-price-choice { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; font-size: 14px; }
+.batch-price-choice input { margin-top: 4px; accent-color: var(--accent); }
 
 .field { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
 .field > span {
@@ -349,6 +361,7 @@ textarea:focus {
 }
 .modal h2 { margin: 0; font-size: 19px; font-weight: 700; }
 .modal-lead { margin: 0; }
+.batch-duplicate-modal { max-width: 700px; }
 
 .dup-facts {
   margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 16px;

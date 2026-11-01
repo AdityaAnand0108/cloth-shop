@@ -8,7 +8,6 @@ import com.clothshop.sales.dto.SaleDtos.PriceCheckRequest;
 import com.clothshop.sales.service.SaleService;
 import com.clothshop.platform.service.IdempotencyService;
 import jakarta.validation.Valid;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,7 +25,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/sales")
 @Tag(name = "Sales", description = "Cart price checks, checkout, bills, and daily summary")
-@SecurityRequirement(name = "bearerAuth")
 public class SaleController {
 
     private final SaleService sales;

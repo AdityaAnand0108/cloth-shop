@@ -1,6 +1,8 @@
 package com.clothshop.catalog.dto;
 
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
@@ -125,6 +127,33 @@ public final class ArticleDtos {
             BigDecimal sellingPrice,
             boolean sellingPriceChanged
     ) {
+    }
+
+    /** One purchase can carry stock for several size variants of the same article. */
+    public record AddArticleBatchRequest(
+            @NotNull Long articleTypeId,
+            @NotNull Long brandId,
+            @NotNull Long materialId,
+            @NotNull Long colourId,
+            @NotNull @DecimalMin(value = "0.00", message = "Buying price cannot be negative") BigDecimal buyingPrice,
+            @NotNull @DecimalMin(value = "0.00", message = "Selling price cannot be negative") BigDecimal sellingPrice,
+            @NotNull(message = "Choose where this was bought from") Long wholesalerId,
+            @NotNull(message = "Choose who is adding this") Long staffId,
+            String note,
+            @NotEmpty(message = "Enter a quantity for at least one size")
+            List<@Valid AddArticleBatchLine> sizes
+    ) {
+    }
+
+    public record AddArticleBatchLine(
+            @NotNull Long sizeId,
+            @NotNull @Positive(message = "Quantity must be at least 1") BigDecimal quantity,
+            @NotNull AddMode mode,
+            boolean updateSellingPrice
+    ) {
+    }
+
+    public record AddArticleBatchResponse(List<AddArticleResponse> items) {
     }
 
     // ---------- list ----------

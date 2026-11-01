@@ -1,5 +1,5 @@
 import type {
-  AddArticleRequest, AddArticleResponse, ApiError, ArticleDetail, ArticleFilters,
+  AddArticleBatchRequest, AddArticleBatchResponse, AddArticleRequest, AddArticleResponse, ApiError, ArticleDetail, ArticleFilters,
   ArticleListItem, Bill, CartArticle, CheckoutRequest, DaySummary, LookupItem,
   Lookups, Page, PreviewResponse, WholesalerItem,
 } from './types'
@@ -64,6 +64,13 @@ export const api = {
    */
   addArticle: (body: AddArticleRequest, idempotencyKey: string) =>
     request<AddArticleResponse>('/articles', {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify(body),
+    }),
+
+  addArticleBatch: (body: AddArticleBatchRequest, idempotencyKey: string) =>
+    request<AddArticleBatchResponse>('/articles/batch', {
       method: 'POST',
       headers: { 'Idempotency-Key': idempotencyKey },
       body: JSON.stringify(body),
