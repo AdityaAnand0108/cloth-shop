@@ -2,12 +2,6 @@ spring:
   application:
     name: cloth-shop
 
-  mvc:
-    # Springdoc registers a Swagger UI resource pattern that is not accepted by
-    # Spring 6's PathPatternParser; use the compatible Ant matcher for MVC routes.
-    pathmatch:
-      matching-strategy: ant_path_matcher
-
   datasource:
     # Use Neon's pooled JDBC URL for normal application traffic.
     url: ${DB_URL}
