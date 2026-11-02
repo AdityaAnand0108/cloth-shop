@@ -26,6 +26,7 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
 
   const [sel, setSel] = useState<Selection>(EMPTY)
   const [colourIds, setColourIds] = useState<string[]>([])
+  const [colourMenuOpen, setColourMenuOpen] = useState(false)
   const [buyingPrice, setBuyingPrice] = useState('')
   const [sellingPrice, setSellingPrice] = useState('')
   const [sellingPriceLocked, setSellingPriceLocked] = useState(true)
@@ -94,13 +95,6 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
   }), [availableSizes, colourIds, lookups, quantities])
   const selectedLineKey = selectedLines.map(line => line.key).join(',')
   const attributesSelected = Boolean(sel.articleTypeId && sel.brandId && sel.materialId && colourIds.length > 0)
-  const articleCodeParts = lookups ? [
-    lookups.articleTypes.find(a => String(a.id) === sel.articleTypeId)?.code,
-    lookups.brands.find(b => String(b.id) === sel.brandId)?.code,
-    lookups.materials.find(m => String(m.id) === sel.materialId)?.code,
-  ] : []
-  const articleCodePrefix = articleCodeParts.every(Boolean) ? articleCodeParts.join('') : ''
-
   const selectedWholesaler = lookups?.wholesalers.find(w => String(w.id) === wholesalerId) ?? null
 
   // Check each size with stock entered so existing variants can be reviewed together.
@@ -302,21 +296,38 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
 
           <div className="field colour-picker">
             <span>Colours <em className="hint">select one or more</em></span>
-            <div className="colour-options">
-              {lookups.colours.map(c => (
-                <label key={c.id} className={`colour-option ${colourIds.includes(String(c.id)) ? 'selected' : ''}`}>
-                  <input
-                    type="checkbox"
-                    checked={colourIds.includes(String(c.id))}
-                    onChange={e => setColourIds(current => e.target.checked
-                      ? [...current, String(c.id)]
-                      : current.filter(id => id !== String(c.id)))}
-                  />
-                  <span className="swatch sm" style={{ background: c.hex ?? 'transparent' }} />
-                  {c.name}
-                </label>
-              ))}
+            <div className="colour-picker-control">
+              <button type="button" className="colour-picker-trigger" onClick={() => setColourMenuOpen(open => !open)}>
+                {colourIds.length === 0 ? 'Choose colours' : `${colourIds.length} colour${colourIds.length === 1 ? '' : 's'} selected`}
+                <span aria-hidden="true">⌄</span>
+              </button>
+              {colourMenuOpen && (
+                <div className="colour-menu" role="group" aria-label="Choose colours">
+                  {lookups.colours.map(c => (
+                    <label key={c.id} className={`colour-option ${colourIds.includes(String(c.id)) ? 'selected' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={colourIds.includes(String(c.id))}
+                        onChange={e => setColourIds(current => e.target.checked
+                          ? [...current, String(c.id)]
+                          : current.filter(id => id !== String(c.id)))}
+                      />
+                      <span className="swatch sm" style={{ background: c.hex ?? 'transparent' }} />
+                      {c.name}
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
+            {colourIds.length > 0 && (
+              <div className="selected-colour-summary">
+                {colourIds.map(id => lookups.colours.find(c => String(c.id) === id)).filter(Boolean).map(c => (
+                  <span key={c!.id} className="selected-colour-chip">
+                    <span className="swatch sm" style={{ background: c!.hex ?? 'transparent' }} />{c!.name}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
         </div>
@@ -334,37 +345,38 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
           ) : (
             <div className="table-scroll">
               <table className="batch-size-table">
-                <thead><tr><th>Colour</th><th>Size</th><th>Article code</th><th>Quantity to add</th><th>Inventory status</th></tr></thead>
+                <thead><tr><th>Size</th>{colourIds.map(colourId => {
+                  const colour = lookups.colours.find(c => String(c.id) === colourId)
+                  return <th key={colourId}>{colour?.name}</th>
+                })}</tr></thead>
                 <tbody>
-                  {colourIds.flatMap(colourId => availableSizes.map(size => {
-                    const colour = lookups.colours.find(c => String(c.id) === colourId)
-                    const key = `${colourId}:${size.id}`
-                    const quantity = quantities[key] ?? ''
-                    const preview = previews[key]
-                    const status = !quantity || Number(quantity) <= 0
-                      ? 'Not selected'
-                      : previewLoading ? 'Checking…'
-                        : preview?.exists ? `Already in stock · ${preview.existing?.qtyOnHand ?? 0}`
-                          : preview ? 'New size' : 'Waiting to check'
-                    return (
-                      <tr key={key}>
-                        <th scope="row">{colour?.name}</th>
-                        <th scope="row">{size.name}</th>
-                        <td><code>{articleCodePrefix && colour ? `${articleCodePrefix}${colour.code}${size.code}` : '—'}</code></td>
-                        <td>
-                          <input
-                            aria-label={`Quantity for size ${size.name}`}
-                            type="number" min="1" step="1" inputMode="numeric"
-                            placeholder="0"
-                            value={quantity}
-                            onChange={e => setQuantities(current => ({ ...current, [key]: e.target.value }))}
-                            disabled={!attributesSelected || submitting}
-                          />
-                        </td>
-                        <td className={preview?.exists ? 'warn' : 'muted'}>{status}</td>
-                      </tr>
-                    )
-                  }))}
+                  {availableSizes.map(size => (
+                    <tr key={size.id}>
+                      <th scope="row">{size.name}</th>
+                      {colourIds.map(colourId => {
+                        const key = `${colourId}:${size.id}`
+                        const quantity = quantities[key] ?? ''
+                        const preview = previews[key]
+                        const status = !quantity || Number(quantity) <= 0 ? ''
+                          : previewLoading ? 'Checking…'
+                            : preview?.exists ? `Stock ${preview.existing?.qtyOnHand ?? 0}`
+                              : preview ? 'New' : 'Waiting…'
+                        return (
+                          <td key={key}>
+                            <input
+                              aria-label={`${lookups.colours.find(c => String(c.id) === colourId)?.name} quantity for size ${size.name}`}
+                              type="number" min="0" step="1" inputMode="numeric"
+                              placeholder="0"
+                              value={quantity}
+                              onChange={e => setQuantities(current => ({ ...current, [key]: e.target.value }))}
+                              disabled={!attributesSelected || submitting}
+                            />
+                            <small className={preview?.exists ? 'warn' : 'muted'}>{status}</small>
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
