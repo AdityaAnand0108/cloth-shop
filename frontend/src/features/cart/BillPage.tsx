@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
 import type { Bill } from '../../api/types'
 import { amount, dateTime, qty, rupees } from '../../money'
+import { whatsappBillUrl, whatsappNumber } from './whatsapp'
 
 type Props = {
   /** A bill just rung up, handed straight over so the receipt needs no round trip. */
@@ -48,6 +49,8 @@ export function BillPage({ bill: given, billId, onNewSale, onBack }: Props) {
   }
 
   const b = bill
+  const whatsappUrl = whatsappBillUrl(b)
+  const hasPhone = Boolean(b.customerPhone)
   const savedByCustomer =
     b.lines.reduce((sum, l) => sum + (l.listPrice - l.unitPrice) * l.qty, 0) + b.discount
   const marginPct = b.total > 0 ? (b.profit / b.total) * 100 : 0
@@ -58,9 +61,26 @@ export function BillPage({ bill: given, billId, onNewSale, onBack }: Props) {
         <button type="button" className="link" onClick={onBack}>&larr; Dashboard</button>
         <div className="actions">
           <button type="button" onClick={() => window.print()}>Print bill</button>
+          {whatsappUrl && (
+            <button type="button" className="primary" onClick={() => window.open(whatsappUrl, '_blank', 'noopener,noreferrer')}>
+              Send on WhatsApp
+            </button>
+          )}
           <button type="button" className="primary" onClick={onNewSale}>Next customer</button>
         </div>
       </div>
+
+      {given && hasPhone && !whatsappNumber(b.customerPhone) && (
+        <div className="banner err no-print">
+          Bill saved, but this phone number does not look valid for WhatsApp. Update the
+          customer number on the next sale to share bills.
+        </div>
+      )}
+      {given && whatsappUrl && (
+        <div className="banner ok no-print">
+          Bill saved. WhatsApp is ready with the receipt message; review it and tap Send.
+        </div>
+      )}
 
       {given && (
         <div className="banner ok no-print">

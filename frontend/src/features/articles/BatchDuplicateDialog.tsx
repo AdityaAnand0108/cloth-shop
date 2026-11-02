@@ -4,6 +4,7 @@ import type { ExistingArticle } from '../../api/types'
 export type DuplicateSize = {
   existing: ExistingArticle
   quantity: number
+  colourName?: string
 }
 
 const rupees = (n: number) =>
@@ -36,11 +37,12 @@ export function BatchDuplicateDialog({
         <div className="table-scroll">
           <table className="batch-size-table">
             <thead>
-              <tr><th>Size</th><th>In stock</th><th>Adding</th><th>Current price</th></tr>
+              <tr><th>Colour</th><th>Size</th><th>In stock</th><th>Adding</th><th>Current price</th></tr>
             </thead>
             <tbody>
-              {sizes.map(({ existing, quantity }) => (
+              {sizes.map(({ existing, quantity, colourName }) => (
                 <tr key={existing.variantId}>
+                  <td>{colourName ?? '—'}</td>
                   <td>{existing.sizeName}</td>
                   <td>{existing.qtyOnHand}</td>
                   <td>{quantity}</td>

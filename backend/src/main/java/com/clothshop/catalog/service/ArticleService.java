@@ -129,13 +129,14 @@ public class ArticleService {
     /** Add several size variants from one purchase, atomically. */
     @Transactional
     public AddArticleBatchResponse addBatch(AddArticleBatchRequest request) {
-        Set<Long> seenSizeIds = new HashSet<>();
+        Set<String> seenVariants = new HashSet<>();
         List<Selection> selections = request.sizes().stream().map(line -> {
-            if (!seenSizeIds.add(line.sizeId())) {
-                throw ApiException.badRequest("DUPLICATE_SIZE", "Each size can be entered only once");
+            String variantKey = line.colourId() + ":" + line.sizeId();
+            if (!seenVariants.add(variantKey)) {
+                throw ApiException.badRequest("DUPLICATE_VARIANT", "Each colour and size combination can be entered only once");
             }
             Selection selection = resolve(request.articleTypeId(), request.brandId(),
-                    request.materialId(), request.colourId(), line.sizeId());
+                    request.materialId(), line.colourId(), line.sizeId());
             requireSizeMatchesArticle(selection);
             return selection;
         }).toList();
@@ -163,7 +164,7 @@ public class ArticleService {
         List<AddArticleResponse> added = new java.util.ArrayList<>();
         for (AddArticleBatchLine line : request.sizes()) {
             added.add(add(new AddArticleRequest(
-                    request.articleTypeId(), request.brandId(), request.materialId(), request.colourId(),
+                    request.articleTypeId(), request.brandId(), request.materialId(), line.colourId(),
                     line.sizeId(), request.buyingPrice(), request.sellingPrice(), line.quantity(),
                     request.wholesalerId(), request.staffId(), line.mode(),
                     line.updateSellingPrice(), request.note())));

@@ -3,6 +3,7 @@ import { api, HttpError } from '../../api/client'
 import type { Bill, CartArticle, Lookups, PaymentMode } from '../../api/types'
 import { amount, rupees } from '../../money'
 import { useCart } from './CartContext'
+import { whatsappBillUrl } from './whatsapp'
 
 const PAYMENT_MODES: PaymentMode[] = ['CASH', 'UPI', 'CARD']
 
@@ -107,6 +108,9 @@ export function CartPage({ onBack, onBrowse, onBilled, onOpenArticle }: Props) {
 
   async function completeSale() {
     if (blocker || submitting) return
+    // Reserve the tab during the user gesture; browsers may block a window opened
+    // only after the checkout request resolves.
+    const whatsappTab = customerPhone.trim() ? window.open('', '_blank') : null
     setSubmitting(true)
     setError(null)
     try {
@@ -125,8 +129,16 @@ export function CartPage({ onBack, onBrowse, onBilled, onOpenArticle }: Props) {
       }, cart.idempotencyKey)
 
       cart.clear()
+      const whatsappUrl = whatsappBillUrl(bill)
+      if (whatsappUrl && whatsappTab) {
+        whatsappTab.opener = null
+        whatsappTab.location.href = whatsappUrl
+      } else {
+        whatsappTab?.close()
+      }
       onBilled(bill)
     } catch (e) {
+      whatsappTab?.close()
       const message = e instanceof HttpError ? e.message : (e as Error).message
       setError(message)
       // Whatever went wrong, the shelf is the thing most likely to have moved.

@@ -134,7 +134,6 @@ public final class ArticleDtos {
             @NotNull Long articleTypeId,
             @NotNull Long brandId,
             @NotNull Long materialId,
-            @NotNull Long colourId,
             @NotNull @DecimalMin(value = "0.00", message = "Buying price cannot be negative") BigDecimal buyingPrice,
             @NotNull @DecimalMin(value = "0.00", message = "Selling price cannot be negative") BigDecimal sellingPrice,
             @NotNull(message = "Choose where this was bought from") Long wholesalerId,
@@ -146,6 +145,7 @@ public final class ArticleDtos {
     }
 
     public record AddArticleBatchLine(
+            @NotNull Long colourId,
             @NotNull Long sizeId,
             @NotNull @Positive(message = "Quantity must be at least 1") BigDecimal quantity,
             @NotNull AddMode mode,

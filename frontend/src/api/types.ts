@@ -82,8 +82,9 @@ export type AddArticleResponse = {
 }
 
 export type AddArticleBatchRequest = Omit<AddArticleRequest,
-  'sizeId' | 'quantity' | 'mode' | 'updateSellingPrice'> & {
+  'colourId' | 'sizeId' | 'quantity' | 'mode' | 'updateSellingPrice'> & {
   sizes: Array<{
+    colourId: number
     sizeId: number
     quantity: number
     mode: AddMode
