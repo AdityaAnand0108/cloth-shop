@@ -2,13 +2,16 @@ import { useEffect, useMemo, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { api } from '../../api/client'
 import type { CheckoutLine, CheckoutRequest, Lookups, PaymentMode } from '../../api/types'
+import { NewBrandDialog } from '../articles/NewBrandDialog'
 
 type Kind = 'inventory' | 'sales'
 type Row = Record<string, string>
 type SourceColumn = { id: string; label: string }
+const ADD_NEW_BRAND = '__add_new_brand__'
 
 const INVENTORY_COLUMNS = ['Article Type', 'Brand', 'Material', 'Colour', 'Size', 'Buying Price', 'Selling Price', 'Quantity', 'Wholesaler', 'Added By', 'Invoice / Reference', 'Reorder Level', 'Note']
 const SALES_COLUMNS = ['Bill Number', 'Sale Date', 'Customer Name', 'Customer Phone', 'Article Code', 'Quantity', 'Unit Price', 'Unit Cost', 'Payment Mode', 'Staff', 'Discount', 'Note']
+const SHARED_INVENTORY_COLUMNS = new Set(['Article Type', 'Brand', 'Material', 'Wholesaler', 'Added By'])
 const key = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
 const value = (row: Row, name: string) => row[key(name)]?.trim() ?? ''
 const newKey = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
@@ -68,6 +71,7 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
   const [busy, setBusy] = useState(false)
   const [historicalOnly, setHistoricalOnly] = useState(true)
   const [result, setResult] = useState<string | null>(null)
+  const [addingBrandForRow, setAddingBrandForRow] = useState<number | null>(null)
 
   const columns = columnsFor(kind)
   const required = requiredFor(kind)
@@ -167,12 +171,22 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
     setRows(current => current.map((row, rowIndex) => rowIndex === index ? { ...row, [key(header)]: next } : row))
   }
 
+  function fillBlankRows(header: string) {
+    const source = rows.find(row => value(row, header))
+    if (!source) return
+    const sharedValue = value(source, header)
+    setRows(current => current.map(row => value(row, header) ? row : { ...row, [key(header)]: sharedValue }))
+  }
+
   function editCell(row: Row, index: number, header: string) {
     const current = value(row, header)
     const options = optionsFor(header)
-    if (options.length > 0) {
+    if (options.length > 0 || header === 'Brand') {
       const canonical = options.find(option => option.name.toLowerCase() === current.toLowerCase() || option.code?.toLowerCase() === current.toLowerCase())?.name ?? current
-      return <select value={canonical} onChange={e => updateRow(index, header, e.target.value)}><option value="">Choose…</option>{current && !options.some(option => option.name.toLowerCase() === current.toLowerCase() || option.code?.toLowerCase() === current.toLowerCase()) && <option value={current}>Review: {current}</option>}{options.map(option => <option key={option.id} value={option.name}>{option.name}{option.code ? ` (${option.code})` : ''}</option>)}</select>
+      return <select value={canonical} onChange={e => {
+        if (header === 'Brand' && e.target.value === ADD_NEW_BRAND) setAddingBrandForRow(index)
+        else updateRow(index, header, e.target.value)
+      }}><option value="">Choose…</option>{current && !options.some(option => option.name.toLowerCase() === current.toLowerCase() || option.code?.toLowerCase() === current.toLowerCase()) && <option value={current}>Review: {current}</option>}{options.map(option => <option key={option.id} value={option.name}>{option.name}{option.code ? ` (${option.code})` : ''}</option>)}{header === 'Brand' && <option value={ADD_NEW_BRAND}>＋ Add new brand…</option>}</select>
     }
     const numeric = ['Buying Price', 'Selling Price', 'Quantity', 'Unit Price', 'Unit Cost', 'Discount', 'Reorder Level'].includes(header)
     return <input type={header === 'Sale Date' ? 'date' : numeric ? 'number' : 'text'} min={numeric ? '0' : undefined} step={['Quantity', 'Reorder Level'].includes(header) ? '1' : numeric ? '0.01' : undefined} value={current} onChange={e => updateRow(index, header, e.target.value)} />
@@ -263,7 +277,7 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
     XLSX.writeFile(workbook, `${kind}-import-template.xlsx`)
   }
 
-  return <div className="page">
+  return <div className="page import-page">
     <header className="page-head"><button type="button" className="link" onClick={onBack}>← Dashboard</button><h1>Import {kind === 'inventory' ? 'inventory' : 'sales'}</h1><p className="muted">Upload, match your columns, correct catalogue values and validate the whole workbook before saving.</p></header>
     {error && <div className="banner err">{error}</div>}{result && <div className="banner ok">{result}</div>}
     <section className="card import-card">
@@ -273,10 +287,19 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
       {missingMappings.length > 0 && <div className="banner err">Map these required fields before saving: {missingMappings.join(', ')}.</div>}
       {rows.length === 0 ? <p className="muted">Upload an Excel workbook to review its rows here.</p> : <>
         <div className="import-summary"><strong>{rows.length} rows</strong><span>{validation.length ? `${validation.length} issue(s) to fix` : 'All rows are ready to save'}</span><span>{kind === 'sales' ? `${new Set(rows.map(row => value(row, 'Bill Number')).filter(Boolean)).size} bills` : `${new Set(rows.map(row => `${value(row, 'Article Type')}:${value(row, 'Brand')}:${value(row, 'Colour')}:${value(row, 'Size')}`)).size} variants`}</span></div>
-        <div className="table-scroll"><table className="import-table"><thead><tr>{columns.map(header => <th key={header}>{header}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{columns.map(header => <td key={header}>{editCell(row, index, header)}</td>)}</tr>)}</tbody></table></div>
+        {kind === 'inventory' && <p className="muted small import-help">Blank cells mean the workbook did not include a value for that field. Choose a saved catalogue item, add a new brand when needed, then use “Fill blanks” for shared article details.</p>}
+        <div className="table-scroll"><table className="import-table"><thead><tr>{columns.map(header => <th key={header}><span>{header}</span>{SHARED_INVENTORY_COLUMNS.has(header) && rows.some(row => !value(row, header)) && rows.some(row => value(row, header)) && <button type="button" className="link import-fill-blanks" onClick={() => fillBlankRows(header)}>Fill blanks</button>}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{columns.map(header => <td key={header}>{editCell(row, index, header)}</td>)}</tr>)}</tbody></table></div>
       </>}
       {validation.length > 0 && <div className="import-errors"><strong>Resolve these rows before saving</strong>{validation.slice(0, 8).map(message => <p key={message}>{message}</p>)}{validation.length > 8 && <p>…and {validation.length - 8} more issues.</p>}</div>}
       <div className="actions"><button type="button" className="primary" disabled={!rows.length || validation.length > 0 || missingMappings.length > 0 || busy || !lookups} onClick={() => void save()}>{busy ? 'Validating and saving…' : `Validate and save ${rows.length || ''} rows`}</button><button type="button" className="ghost" onClick={onBack}>Cancel</button></div>
     </section>
+    {addingBrandForRow !== null && <NewBrandDialog
+      onCancel={() => setAddingBrandForRow(null)}
+      onCreated={brand => {
+        setLookups(current => current ? { ...current, brands: [...current.brands, brand].sort((a, b) => a.name.localeCompare(b.name)) } : current)
+        setRows(current => current.map((row, rowIndex) => rowIndex === addingBrandForRow ? { ...row, brand: brand.name } : row))
+        setAddingBrandForRow(null)
+      }}
+    />}
   </div>
 }

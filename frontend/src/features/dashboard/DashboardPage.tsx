@@ -51,7 +51,14 @@ export function DashboardPage({ onAdd, onViewArticles, onOpenCart, onOpenBill,
         if (cancelled) return
         setReport(analytics); setDay(bills); setError(null)
       })
-      .catch((e: Error) => { if (!cancelled) setError(e.message) })
+      .catch((e: Error) => {
+        if (!cancelled) {
+          const message = e.message.includes('PreparedStatementCallback') || e.message.includes('bad SQL grammar')
+            ? 'The dashboard could not read its report data. Refresh the page; if this continues, contact support.'
+            : e.message
+          setError(message)
+        }
+      })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [from, to])
@@ -99,7 +106,7 @@ export function DashboardPage({ onAdd, onViewArticles, onOpenCart, onOpenBill,
   }
 
   return (
-    <div className="page">
+    <div className="page dashboard-page">
       <header className="page-head dashboard-head">
         <div><h1>BFlex</h1><p className="muted">Shop performance and today’s next actions</p></div>
         <div className="dashboard-range">

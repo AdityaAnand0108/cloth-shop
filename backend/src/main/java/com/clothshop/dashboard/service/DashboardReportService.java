@@ -36,6 +36,10 @@ public class DashboardReportService {
         if (start.plusDays(366).isBefore(end)) throw ApiException.badRequest("DATE_RANGE_TOO_LARGE", "Choose a date range of one year or less.");
         Instant startAt = start.atStartOfDay(shopZone).toInstant();
         Instant endAt = end.plusDays(1).atStartOfDay(shopZone).toInstant();
+        // pgJDBC maps SQL timestamps from java.sql.Timestamp. Passing Instant directly
+        // through JdbcTemplate is not supported by the driver's JDBC 4.2 type mapping.
+        Timestamp startTime = Timestamp.from(startAt);
+        Timestamp endTime = Timestamp.from(endAt);
 
         Sales sales = jdbc.queryForObject("""
                 select count(s.id) as bills,
@@ -50,8 +54,8 @@ public class DashboardReportService {
                   from sale s where s.created_at >= ? and s.created_at < ? and s.status = 'COMPLETED'
                 """, (rs, row) -> new Sales(rs.getInt("bills"), rs.getInt("returns"), rs.getBigDecimal("items"),
                 rs.getBigDecimal("takings"), rs.getBigDecimal("profit"), rs.getBigDecimal("discounts"), rs.getInt("estimated")),
-                startAt, endAt, startAt, endAt, startAt, endAt, startAt, endAt, startAt, endAt,
-                startAt, endAt, startAt, endAt, startAt, endAt);
+                startTime, endTime, startTime, endTime, startTime, endTime, startTime, endTime,
+                startTime, endTime, startTime, endTime, startTime, endTime, startTime, endTime);
 
         Inventory inventory = jdbc.queryForObject("""
                 select count(v.id) as variants,
@@ -75,7 +79,7 @@ public class DashboardReportService {
                      where created_at >= ? and created_at < ? and refund_payment_mode is not null
                 ) movement group by mode order by mode
                 """, (rs, row) -> new PaymentTotal(rs.getString("mode"), rs.getBigDecimal("total")),
-                startAt, endAt, startAt, endAt);
+                startTime, endTime, startTime, endTime);
 
         List<TopSeller> topSellers = jdbc.query("""
                 select sl.variant_id, sl.article_code, sl.description, sl.colour, sl.size,
@@ -93,7 +97,7 @@ public class DashboardReportService {
                  order by quantity desc, sales desc limit 8
                 """, (rs, row) -> new TopSeller(rs.getLong("variant_id"), rs.getString("article_code"),
                 rs.getString("description"), rs.getString("colour"), rs.getString("size"),
-                rs.getBigDecimal("quantity"), rs.getBigDecimal("sales")), startAt, endAt, startAt, endAt);
+                rs.getBigDecimal("quantity"), rs.getBigDecimal("sales")), startTime, endTime, startTime, endTime);
 
         List<StockAlert> lowStock = jdbc.query("""
                 select v.id, v.article_code, p.display_name, c.name as colour, z.name as size,
