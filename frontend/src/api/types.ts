@@ -227,11 +227,14 @@ export type CheckoutLine = {
 export type CheckoutRequest = {
   lines: CheckoutLine[]
   staffId: number
+  billNo?: string
   customerName?: string
   customerPhone?: string
   discount: number
   paymentMode: PaymentMode
   note?: string
+  createdAt?: string
+  affectInventory?: boolean
 }
 
 export type BillLine = {

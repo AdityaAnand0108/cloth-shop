@@ -60,6 +60,11 @@ code, .num, .mono { font-family: 'Cascadia Mono', Consolas, ui-monospace, monosp
 .sign-out { position: fixed; top: 14px; right: max(18px, calc((100vw - 1240px) / 2)); z-index: 40; border-color: var(--border); background: rgba(255,255,255,.92); }
 .page-head h1 { margin: 0 0 8px; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
 .page-head .muted { margin: 0; max-width: 62ch; }
+.dashboard-date { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
+.dashboard-date .field { width: 190px; }
+.dashboard-date .field > span { font-size: 10px; }
+.dashboard-section { gap: 18px; }
+.dashboard-stats { padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
 .muted { color: var(--ink-3); }
 .small { font-size: 13px; }
 
@@ -215,6 +220,15 @@ input.readonly { background: var(--surface-2); color: var(--ink-2); }
 
 /* ---------- buttons ---------- */
 .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.import-card { gap: 18px; }
+.import-toolbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.file-button { display: inline-flex; align-items: center; cursor: pointer; }
+.file-button input { display: none; }
+.import-option { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 14px; }
+.import-table { min-width: 980px; }
+.import-table input { min-width: 110px; padding: 7px 9px; }
+.import-errors { padding: 12px 14px; border: 1px solid #f1c2ca; border-radius: var(--radius); background: var(--danger-soft); color: var(--danger); font-size: 13px; }
+.import-errors p { margin: 3px 0; }
 button {
   font: 600 14px/1 'Segoe UI', sans-serif;
   padding: 11px 20px;

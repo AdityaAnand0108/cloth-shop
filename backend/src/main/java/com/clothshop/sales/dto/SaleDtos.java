@@ -55,12 +55,18 @@ public final class SaleDtos {
     public record CheckoutRequest(
             @NotEmpty(message = "There is nothing in the cart") @Valid List<CheckoutLine> lines,
             @NotNull(message = "Choose who is billing this") Long staffId,
+            /** Optional original bill number used by reviewed historical imports. */
+            String billNo,
             String customerName,
             String customerPhone,
             /** Off the whole bill — the round-off, or the last concession. */
             @DecimalMin(value = "0.00", message = "Discount cannot be negative") BigDecimal discount,
             @NotNull(message = "Choose how it was paid") PaymentMode paymentMode,
-            String note
+            String note,
+            /** Used only for reviewed historical imports; normal checkout leaves it null. */
+            Instant createdAt,
+            /** Historical imports can be recorded without changing current stock. */
+            Boolean affectInventory
     ) {
     }
 

@@ -132,7 +132,12 @@ public class SaleService {
         }
 
         Sale sale = new Sale();
-        sale.setBillNo(billNumbers.next());
+        String requestedBillNo = blankToNull(request.billNo());
+        if (requestedBillNo != null && sales.findByBillNo(requestedBillNo).isPresent()) {
+            throw ApiException.conflict("DUPLICATE_BILL", "Bill " + requestedBillNo + " already exists",
+                    Map.of("billNo", requestedBillNo));
+        }
+        sale.setBillNo(requestedBillNo == null ? billNumbers.next() : requestedBillNo);
         sale.setLocationId(location.getId());
         sale.setStaffId(request.staffId());
         sale.setCustomerName(blankToNull(request.customerName()));
@@ -140,6 +145,9 @@ public class SaleService {
         sale.setPaymentMode(request.paymentMode());
         sale.setNote(blankToNull(request.note()));
         sale.setCreatedBy(user);
+        if (request.createdAt() != null) {
+            sale.setCreatedAt(request.createdAt());
+        }
 
         BigDecimal subtotal = BigDecimal.ZERO;
         BigDecimal costTotal = BigDecimal.ZERO;
@@ -190,10 +198,12 @@ public class SaleService {
         String ledgerNote = sale.getCustomerName() == null
                 ? null
                 : "Sold to " + sale.getCustomerName();
-        for (SaleLine line : sale.getLines()) {
-            inventory.postSale(line.getVariantId(), location.getId(), line.getQty(),
-                    line.getUnitCost(), line.getUnitPrice(), sale.getBillNo(),
-                    ledgerNote, user);
+        if (request.affectInventory() == null || request.affectInventory()) {
+            for (SaleLine line : sale.getLines()) {
+                inventory.postSale(line.getVariantId(), location.getId(), line.getQty(),
+                        line.getUnitCost(), line.getUnitPrice(), sale.getBillNo(),
+                        ledgerNote, user);
+            }
         }
 
         return toBill(sale);

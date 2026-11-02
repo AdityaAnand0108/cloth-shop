@@ -10,6 +10,7 @@ import { CartPage } from './features/cart/CartPage'
 import { CartProvider } from './features/cart/CartContext'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import { LoginPage } from './features/auth/LoginPage'
+import { ImportPage } from './features/import/ImportPage'
 
 type View =
   | { name: 'dashboard' }
@@ -19,6 +20,7 @@ type View =
   | { name: 'cart' }
   /** A bill just rung up is carried in whole; an older one is fetched by id. */
   | { name: 'bill'; bill?: Bill; billId?: number }
+  | { name: 'import'; kind: 'inventory' | 'sales' }
 
 export default function App() {
   const { data: session, isPending } = authClient.useSession()
@@ -79,6 +81,8 @@ function Shell({ onSignOut }: { onSignOut: () => void }) {
             onBack={toDashboard}
           />
         )
+      case 'import':
+        return <ImportPage kind={view.kind} onBack={toDashboard} />
       default:
         return (
           <DashboardPage
@@ -86,6 +90,8 @@ function Shell({ onSignOut }: { onSignOut: () => void }) {
             onViewArticles={toArticles}
             onOpenCart={toCart}
             onOpenBill={openBill}
+            onImportInventory={() => setView({ name: 'import', kind: 'inventory' })}
+            onImportSales={() => setView({ name: 'import', kind: 'sales' })}
           />
         )
     }

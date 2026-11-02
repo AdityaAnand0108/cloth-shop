@@ -84,7 +84,7 @@ export const api = {
    * response of a search the user has already typed past.
    */
   listArticles: (filters: Partial<ArticleFilters> = {}, signal?: AbortSignal) => {
-    const params = new URLSearchParams({ size: '100' })
+    const params = new URLSearchParams({ size: '500' })
     for (const [key, value] of Object.entries(filters)) {
       if (value) params.set(key, value)
     }
