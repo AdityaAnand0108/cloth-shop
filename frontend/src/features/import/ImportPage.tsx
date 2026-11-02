@@ -144,7 +144,7 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
       const sheet = workbook.Sheets[workbook.SheetNames[0]]
       const matrix = XLSX.utils.sheet_to_json<(string | number | Date)[]>(sheet, { header: 1, defval: '' })
       if (matrix.length < 2) throw new Error('The first sheet needs a header row and at least one data row.')
-      const usedColumns = matrix[0].reduce((last, cell, index) => String(cell).trim() ? index + 1 : last, 0)
+      const usedColumns = matrix[0].reduce<number>((last, cell, index) => String(cell).trim() ? index + 1 : last, 0)
       const headers = matrix[0].slice(0, usedColumns).map((cell, index) => ({ id: String(index), label: String(cell).trim() || `Column ${index + 1}` }))
       const raw = matrix.slice(1).filter(row => row.some(cell => String(cell).trim() !== '')).map(row => Array.from({ length: usedColumns }, (_, index) => {
         const cell = row[index]

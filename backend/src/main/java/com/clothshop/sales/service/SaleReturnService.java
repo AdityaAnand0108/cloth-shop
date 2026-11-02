@@ -23,6 +23,7 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -92,7 +93,9 @@ public class SaleReturnService {
             BigDecimal available = sold.getQty().subtract(alreadyReturned);
             if (requested.quantity().compareTo(available) > 0) {
                 throw ApiException.conflict("RETURN_QUANTITY_EXCEEDED", sold.getArticleCode() + " has only "
-                        + available.stripTrailingZeros().toPlainString() + " piece(s) left to return.");
+                        + available.stripTrailingZeros().toPlainString() + " piece(s) left to return.",
+                        Map.of("articleCode", sold.getArticleCode(), "availableQuantity", available,
+                                "requestedQuantity", requested.quantity()));
             }
             BigDecimal refund = sold.getUnitPrice().multiply(requested.quantity()).multiply(discountFactor)
                     .setScale(2, RoundingMode.HALF_UP);

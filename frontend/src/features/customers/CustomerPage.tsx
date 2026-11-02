@@ -17,7 +17,10 @@ export function CustomerPage({ onBack, onOpenBill }: { onBack: () => void; onOpe
     setExpanded(customer.id)
     if (bills[customer.id]) return
     setHistoryBusy(customer.id)
-    try { setBills(current => ({ ...current, [customer.id]: await api.customerBills(customer.id) })) }
+    try {
+      const customerBills = await api.customerBills(customer.id)
+      setBills(current => ({ ...current, [customer.id]: customerBills }))
+    }
     catch (e) { setError(e instanceof Error ? e.message : 'Could not load bill history.') }
     finally { setHistoryBusy(null) }
   }
