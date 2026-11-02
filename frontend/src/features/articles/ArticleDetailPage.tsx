@@ -30,18 +30,22 @@ const DISCOUNTS = [0, 5, 10, 15, 20, 25]
 
 type Note = { tone: 'ok' | 'warn' | 'info'; text: string }
 
-export function ArticleDetailPage({ variantId, onBack, onOpenArticle }: {
+export function ArticleDetailPage({ variantId, onBack, onOpenArticle, onReceiveStock }: {
   variantId: number
   onBack: () => void
   onOpenArticle: (variantId: number) => void
+  onReceiveStock: (variantId: number) => void
 }) {
   const [detail, setDetail] = useState<ArticleDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [reorderLevelInput, setReorderLevelInput] = useState('')
+  const [savingReorderLevel, setSavingReorderLevel] = useState(false)
+  const [reorderMessage, setReorderMessage] = useState<string | null>(null)
 
   useEffect(() => {
     setDetail(null)
     setError(null)
-    api.article(variantId).then(setDetail).catch((e: Error) => setError(e.message))
+    api.article(variantId).then(d => { setDetail(d); setReorderLevelInput(String(d.reorderLevel)) }).catch((e: Error) => setError(e.message))
   }, [variantId])
 
   // What the customer is really asking when they ask for a discount.
@@ -61,6 +65,20 @@ export function ArticleDetailPage({ variantId, onBack, onOpenArticle }: {
   const asking = Number(askingPrice)
   const askingValid = askingPrice !== '' && !Number.isNaN(asking) && asking > 0
   const askingProfit = asking - d.avgCost
+
+  async function saveReorderLevel() {
+    const level = Number(reorderLevelInput)
+    if (reorderLevelInput === '' || !Number.isFinite(level) || level < 0) {
+      setReorderMessage('Enter a threshold of zero or more.'); return
+    }
+    setSavingReorderLevel(true); setReorderMessage(null)
+    try {
+      const saved = await api.setReorderLevel(d.variantId, level)
+      setDetail(current => current ? { ...current, reorderLevel: saved.reorderLevel } : current)
+      setReorderMessage(saved.reorderLevel > 0 ? `Alert set at ${qty(saved.reorderLevel)} pieces.` : 'Low-stock alert turned off.')
+    } catch (e) { setReorderMessage(e instanceof Error ? e.message : 'Could not save the alert.') }
+    finally { setSavingReorderLevel(false) }
+  }
 
   return (
     <Shell onBack={onBack}>
@@ -94,6 +112,7 @@ export function ArticleDetailPage({ variantId, onBack, onOpenArticle }: {
             : `${qty(d.qtyOnHand)} on the shelf`}
         </span>
         <AddToCartButton variantId={d.variantId} qtyOnHand={Number(d.qtyOnHand)} size="full" />
+        <button type="button" onClick={() => onReceiveStock(d.variantId)}>Receive stock</button>
       </div>
 
       {notes.length > 0 && (
@@ -187,6 +206,12 @@ export function ArticleDetailPage({ variantId, onBack, onOpenArticle }: {
           <Stat label="Worth at sticker" value={rupees(stockAtRetail)} />
           <Stat label="Profit if it all sells" value={rupees(stockAtRetail - stockAtCost)} tone="ok" />
           {d.reorderLevel > 0 && <Stat label="Reorder level" value={`${qty(d.reorderLevel)} pcs`} />}
+        </div>
+        <div className="reorder-editor">
+          <label className="field"><span>Low-stock alert at</span><input type="number" min="0" step="1" value={reorderLevelInput} onChange={e => setReorderLevelInput(e.target.value)} /></label>
+          <button type="button" disabled={savingReorderLevel} onClick={() => void saveReorderLevel()}>{savingReorderLevel ? 'Saving…' : 'Save alert'}</button>
+          {reorderMessage && <span className="muted small">{reorderMessage}</span>}
+          <p className="muted small">Set zero to turn the alert off. This variant appears on the dashboard when stock reaches the threshold.</p>
         </div>
       </section>
 

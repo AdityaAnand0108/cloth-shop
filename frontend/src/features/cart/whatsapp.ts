@@ -13,11 +13,8 @@ export function whatsappNumber(phone: string | null): string | null {
   return normalized.length >= 11 && normalized.length <= 15 ? normalized : null
 }
 
-export function whatsappBillUrl(bill: Bill): string | null {
-  const phone = whatsappNumber(bill.customerPhone)
-  if (!phone) return null
-
-  const lines = [
+export function whatsappBillText(bill: Bill): string {
+  return [
     `Hello${bill.customerName ? ` ${bill.customerName}` : ''},`,
     '',
     'Thank you for shopping with BFlex. Here is your bill:',
@@ -35,6 +32,11 @@ export function whatsappBillUrl(bill: Bill): string | null {
     'Please keep this message for exchanges. Exchange within 7 days with this bill; no exchange on altered garments.',
     'Thank you,\nBFlex',
   ].join('\n')
+}
 
-  return `https://wa.me/${phone}?text=${encodeURIComponent(lines)}`
+export function whatsappBillUrl(bill: Bill): string | null {
+  const phone = whatsappNumber(bill.customerPhone)
+  if (!phone) return null
+
+  return `https://wa.me/${phone}?text=${encodeURIComponent(whatsappBillText(bill))}`
 }

@@ -42,6 +42,25 @@ public class Sale {
     @Column(name = "customer_phone", updatable = false, length = 20)
     private String customerPhone;
 
+    @Column(name = "customer_id", updatable = false)
+    private Long customerId;
+
+    @Column(name = "whatsapp_status", nullable = false, length = 16)
+    private String whatsappStatus = "NOT_SENT";
+
+    /** Consent captured at checkout, so later customer preference changes do not rewrite history. */
+    @Column(name = "whatsapp_opt_in_snapshot", nullable = false, updatable = false)
+    private boolean whatsappOptInSnapshot;
+
+    @Column(name = "whatsapp_message_id", length = 128)
+    private String whatsappMessageId;
+
+    @Column(name = "whatsapp_last_error", length = 255)
+    private String whatsappLastError;
+
+    @Column(name = "whatsapp_sent_at")
+    private Instant whatsappSentAt;
+
     /** Sum of the line totals, before the bill-level discount. */
     @Column(nullable = false, updatable = false, precision = 12, scale = 2)
     private BigDecimal subtotal;

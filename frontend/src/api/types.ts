@@ -13,6 +13,16 @@ export type WholesalerItem = {
   address: string
 }
 
+export type CustomerSummary = {
+  id: number
+  name: string
+  phone: string
+  visitCount: number
+  lifetimeSpend: number
+  lastVisit: string | null
+  whatsappOptIn: boolean
+}
+
 export type StaffItem = {
   id: number
   name: string
@@ -67,6 +77,8 @@ export type AddArticleRequest = {
   /** Buying price is never optional - it is averaged in regardless. Only this is a choice. */
   updateSellingPrice: boolean
   note?: string
+  purchaseReference?: string
+  reorderLevel?: number
 }
 
 export type AddArticleResponse = {
@@ -95,6 +107,34 @@ export type AddArticleBatchRequest = Omit<AddArticleRequest,
 export type AddArticleBatchResponse = {
   items: AddArticleResponse[]
 }
+
+export type InventoryReceiptLineRequest = {
+  variantId?: number
+  wholesalerId?: number
+  staffId?: number
+  articleTypeId?: number
+  brandId?: number
+  materialId?: number
+  colourId?: number
+  sizeId?: number
+  buyingPrice: number
+  sellingPrice: number
+  quantity: number
+  updateSellingPrice: boolean
+  reorderLevel?: number
+  purchaseReference?: string
+  note?: string
+}
+
+export type InventoryReceiptRequest = {
+  wholesalerId: number
+  staffId: number
+  reference?: string
+  note?: string
+  items: InventoryReceiptLineRequest[]
+}
+
+export type InventoryReceiptResponse = { reference: string | null; items: AddArticleResponse[] }
 
 /**
  * Held as strings because that is what a `<select>` and a text input give back —
@@ -222,6 +262,7 @@ export type CheckoutLine = {
   qty: number
   /** What was actually agreed, which is not always the shelf price. */
   unitPrice: number
+  historicalUnitCost?: number
 }
 
 export type CheckoutRequest = {
@@ -230,6 +271,7 @@ export type CheckoutRequest = {
   billNo?: string
   customerName?: string
   customerPhone?: string
+  whatsappOptIn?: boolean
   discount: number
   paymentMode: PaymentMode
   note?: string
@@ -249,6 +291,7 @@ export type BillLine = {
   unitPrice: number
   unitCost: number
   lineTotal: number
+  costEstimated: boolean
 }
 
 export type Bill = {
@@ -258,6 +301,7 @@ export type Bill = {
   staffName: string | null
   customerName: string | null
   customerPhone: string | null
+  customerId: number | null
   subtotal: number
   discount: number
   total: number
@@ -267,6 +311,9 @@ export type Bill = {
   paymentMode: PaymentMode
   note: string | null
   status: string
+  whatsappStatus: string
+  whatsappOptIn: boolean
+  profitEstimated: boolean
   itemCount: number
   lines: BillLine[]
 }
@@ -281,6 +328,7 @@ export type BillSummary = {
   total: number
   profit: number
   paymentMode: PaymentMode
+  profitEstimated: boolean
 }
 
 export type DaySummary = {
@@ -291,4 +339,66 @@ export type DaySummary = {
   profit: number
   discountGiven: number
   bills: BillSummary[]
+}
+
+export type DashboardReport = {
+  from: string
+  to: string
+  sales: {
+    billCount: number; returnCount: number; itemCount: number; takings: number
+    profit: number; discountGiven: number; estimatedProfitBills: number
+  }
+  inventory: {
+    variantCount: number; unitsOnHand: number; stockAtCost: number
+    outOfStockCount: number; lowStockCount: number
+  }
+  paymentBreakdown: Array<{ paymentMode: PaymentMode; total: number }>
+  topSellers: Array<{
+    variantId: number; articleCode: string; description: string; colour: string
+    size: string; quantity: number; sales: number
+  }>
+  lowStock: Array<{
+    variantId: number; articleCode: string; description: string; colour: string
+    size: string; quantity: number; reorderLevel: number
+  }>
+  slowMovers: Array<{
+    variantId: number; articleCode: string; description: string; colour: string
+    size: string; quantity: number; stockAtCost: number; lastSoldAt: string | null
+    daysSinceSale: number | null
+  }>
+}
+
+export type ReturnRequest = {
+  staffId: number
+  returnType: 'REFUND' | 'EXCHANGE'
+  reason?: string
+  refundPaymentMode?: PaymentMode
+  lines: Array<{ saleLineId: number; quantity: number; restock: boolean }>
+  exchangeLines?: CheckoutLine[]
+}
+
+export type ReturnResult = {
+  id: number
+  returnNo: string
+  originalBillNo: string
+  returnType: 'REFUND' | 'EXCHANGE'
+  refundAmount: number
+  exchangeTotal: number
+  settlementDue: number
+  refundPaymentMode: PaymentMode | null
+  createdAt: string
+  exchangeBill: Bill | null
+  lines: Array<{
+    saleLineId: number; articleCode: string; description: string; colour: string
+    size: string; quantity: number; refundTotal: number; restocked: boolean
+  }>
+}
+
+export type ReturnableBill = {
+  bill: Bill
+  lines: Array<{
+    saleLineId: number; variantId: number; articleCode: string; description: string
+    colour: string; size: string; soldQuantity: number; returnedQuantity: number
+    availableQuantity: number; unitPrice: number
+  }>
 }

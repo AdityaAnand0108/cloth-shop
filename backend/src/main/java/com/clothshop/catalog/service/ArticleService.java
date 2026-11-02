@@ -167,9 +167,57 @@ public class ArticleService {
                     request.articleTypeId(), request.brandId(), request.materialId(), line.colourId(),
                     line.sizeId(), request.buyingPrice(), request.sellingPrice(), line.quantity(),
                     request.wholesalerId(), request.staffId(), line.mode(),
-                    line.updateSellingPrice(), request.note())));
+                    line.updateSellingPrice(), request.note(), request.purchaseReference(), request.reorderLevel())));
         }
         return new AddArticleBatchResponse(added);
+    }
+
+    /** Receive a mixed supplier delivery as one atomic inventory transaction. */
+    @Transactional
+    public InventoryReceiptResponse receive(InventoryReceiptRequest request) {
+        String reference = request.reference() == null || request.reference().isBlank()
+                ? null : request.reference().trim();
+        List<AddArticleResponse> added = new java.util.ArrayList<>();
+        Set<String> seenCodes = new HashSet<>();
+        for (InventoryReceiptLine line : request.items()) {
+            Selection sel;
+            if (line.variantId() != null) {
+                ProductVariant existing = variants.findDetailById(line.variantId())
+                        .orElseThrow(() -> ApiException.notFound("Article " + line.variantId()));
+                sel = new Selection(existing.getProduct().getArticleType(), existing.getProduct().getBrand(),
+                        existing.getProduct().getMaterial(), existing.getColour(), existing.getSize());
+            } else {
+                if (line.articleTypeId() == null || line.brandId() == null || line.materialId() == null
+                        || line.colourId() == null || line.sizeId() == null) {
+                    throw ApiException.badRequest("MISSING_ARTICLE", "Choose an existing article or complete all article attributes.");
+                }
+                sel = resolve(line.articleTypeId(), line.brandId(), line.materialId(), line.colourId(), line.sizeId());
+                requireSizeMatchesArticle(sel);
+            }
+            String code = codeGenerator.generate(sel.type(), sel.brand(), sel.material(), sel.colour(), sel.size());
+            if (!seenCodes.add(code)) {
+                throw ApiException.badRequest("DUPLICATE_VARIANT", "The receipt contains the same article more than once: " + code);
+            }
+            AddMode mode = variants.findByArticleCode(code).isPresent() ? AddMode.ADD_STOCK : AddMode.CREATE;
+            String purchaseReference = line.purchaseReference() == null || line.purchaseReference().isBlank()
+                    ? reference : line.purchaseReference().trim();
+            added.add(add(new AddArticleRequest(sel.type().getId(), sel.brand().getId(), sel.material().getId(),
+                    sel.colour().getId(), sel.size().getId(), line.buyingPrice(), line.sellingPrice(),
+                    line.quantity(), line.wholesalerId() == null ? request.wholesalerId() : line.wholesalerId(),
+                    line.staffId() == null ? request.staffId() : line.staffId(), mode,
+                    line.updateSellingPrice(), line.note() == null ? request.note() : line.note(),
+                    purchaseReference, line.reorderLevel())));
+        }
+        return new InventoryReceiptResponse(reference, added);
+    }
+
+    @Transactional
+    public BigDecimal setReorderLevel(Long variantId, BigDecimal reorderLevel) {
+        ProductVariant variant = variants.findById(variantId)
+                .orElseThrow(() -> ApiException.notFound("Article"));
+        variant.setReorderLevel(reorderLevel);
+        variants.save(variant);
+        return variant.getReorderLevel();
     }
 
     private AddArticleResponse createArticle(Selection sel, String code, AddArticleRequest request,
@@ -197,11 +245,13 @@ public class ArticleService {
         variant.setLastBuyingPrice(request.buyingPrice());
         variant.setAvgCost(request.buyingPrice());   // first lot sets the average
         variant.setSellingPrice(request.sellingPrice());
+        if (request.reorderLevel() != null) variant.setReorderLevel(request.reorderLevel());
         variants.save(variant);
 
         BigDecimal balance = inventory.post(variant.getId(), location.getId(),
                 MovementType.OPENING_STOCK, request.quantity(), request.buyingPrice(),
-                wholesaler.getId(), "ARTICLE", code, request.note(), user);
+                wholesaler.getId(), request.purchaseReference() == null ? "ARTICLE" : "PURCHASE",
+                request.purchaseReference() == null ? code : request.purchaseReference(), request.note(), user);
 
         return new AddArticleResponse("CREATED", variant.getId(), code, product.getDisplayName(),
                 balance, variant.getAvgCost(), variant.getLastBuyingPrice(),
@@ -219,6 +269,7 @@ public class ArticleService {
         variant.setAvgCost(Costing.weightedAverage(
                 onHandBefore, variant.getAvgCost(), request.quantity(), request.buyingPrice()));
         variant.setLastBuyingPrice(request.buyingPrice());
+        if (request.reorderLevel() != null) variant.setReorderLevel(request.reorderLevel());
 
         // The shelf price IS a choice, and the only one here.
         boolean sellingPriceChanged = false;
@@ -232,7 +283,9 @@ public class ArticleService {
         // unit_cost records what THIS lot actually cost, so the averaging stays reversible.
         BigDecimal balance = inventory.post(variant.getId(), location.getId(),
                 MovementType.PURCHASE_IN, request.quantity(), request.buyingPrice(),
-                wholesaler.getId(), "ARTICLE", variant.getArticleCode(), request.note(), user);
+                wholesaler.getId(), request.purchaseReference() == null ? "ARTICLE" : "PURCHASE",
+                request.purchaseReference() == null ? variant.getArticleCode() : request.purchaseReference(),
+                request.note(), user);
 
         return new AddArticleResponse("STOCK_ADDED", variant.getId(), variant.getArticleCode(),
                 variant.getProduct().getDisplayName(), balance,
@@ -331,6 +384,13 @@ public class ArticleService {
                 lastSaleAt,
                 toLedgerEntries(history),
                 siblingsOf(v, location));
+    }
+
+    @Transactional(readOnly = true)
+    public ArticleDetail detailByCode(String articleCode) {
+        ProductVariant variant = variants.findByArticleCode(articleCode == null ? "" : articleCode.trim())
+                .orElseThrow(() -> ApiException.notFound("Article code " + articleCode));
+        return detail(variant.getId());
     }
 
     /** Supplier names are resolved in one lookup for the whole history, not one per row. */

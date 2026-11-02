@@ -16,6 +16,8 @@ type Selection = {
 const EMPTY: Selection = {
   articleTypeId: '', brandId: '', materialId: '',
 }
+const STAFF_STORAGE_KEY = 'bflex.staff.v1'
+const SUPPLIER_STORAGE_KEY = 'bflex.wholesaler.v1'
 
 const newIdempotencyKey = () =>
   (crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`)
@@ -31,10 +33,12 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
   const [sellingPrice, setSellingPrice] = useState('')
   const [sellingPriceLocked, setSellingPriceLocked] = useState(true)
   const [quantities, setQuantities] = useState<Record<string, string>>({})
-  const [wholesalerId, setWholesalerId] = useState('')
+  const [wholesalerId, setWholesalerId] = useState(() => localStorage.getItem(SUPPLIER_STORAGE_KEY) ?? '')
   // Whoever is at the counter usually enters a run of articles, so this is
   // deliberately not cleared between saves.
-  const [staffId, setStaffId] = useState('')
+  const [staffId, setStaffId] = useState(() => localStorage.getItem(STAFF_STORAGE_KEY) ?? '')
+  const [purchaseReference, setPurchaseReference] = useState('')
+  const [reorderLevel, setReorderLevel] = useState('')
 
   const [showNewBrand, setShowNewBrand] = useState(false)
   const [showNewWholesaler, setShowNewWholesaler] = useState(false)
@@ -169,6 +173,8 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
         sellingPrice: Number(sellingPrice),
         wholesalerId: Number(wholesalerId),
         staffId: Number(staffId),
+        purchaseReference: purchaseReference.trim() || undefined,
+        reorderLevel: reorderLevel === '' ? undefined : Number(reorderLevel),
         sizes: selectedLines.map(line => ({
           colourId: line.colourId,
           sizeId: line.sizeId,
@@ -207,7 +213,8 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
     setSellingPrice('')
     setSellingPriceLocked(true)
     setQuantities({})
-    setWholesalerId('')
+    setPurchaseReference('')
+    setReorderLevel('')
     setPreviews({})
     setDuplicates(null)
     idempotencyKey.current = newIdempotencyKey()
@@ -393,7 +400,7 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
             </span>
             <select
               value={wholesalerId}
-              onChange={e => setWholesalerId(e.target.value)}
+              onChange={e => { setWholesalerId(e.target.value); localStorage.setItem(SUPPLIER_STORAGE_KEY, e.target.value) }}
               required
             >
               <option value="">Select…</option>
@@ -407,7 +414,7 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
             <span>Added by</span>
             <select
               value={staffId}
-              onChange={e => setStaffId(e.target.value)}
+              onChange={e => { setStaffId(e.target.value); localStorage.setItem(STAFF_STORAGE_KEY, e.target.value) }}
               required
             >
               <option value="">Select…</option>
@@ -415,6 +422,11 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
+          </label>
+
+          <label className="field">
+            <span>Supplier invoice / reference <em className="hint">optional</em></span>
+            <input value={purchaseReference} onChange={e => setPurchaseReference(e.target.value)} placeholder="Invoice number or purchase reference" />
           </label>
 
           {selectedWholesaler && (
@@ -438,6 +450,11 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
               placeholder="0.00"
               required
             />
+          </label>
+
+          <label className="field">
+            <span>Reorder alert at <em className="hint">optional</em></span>
+            <input type="number" min="0" step="1" inputMode="numeric" value={reorderLevel} onChange={e => setReorderLevel(e.target.value)} placeholder="Leave blank to set later" />
           </label>
 
           <label className="field">

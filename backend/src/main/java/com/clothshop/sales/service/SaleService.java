@@ -6,6 +6,8 @@ import com.clothshop.common.ApiException;
 import com.clothshop.inventory.domain.Location;
 import com.clothshop.inventory.service.InventoryService;
 import com.clothshop.platform.repository.StaffRepository;
+import com.clothshop.platform.domain.Customer;
+import com.clothshop.platform.service.CustomerService;
 import com.clothshop.sales.domain.Sale;
 import com.clothshop.sales.domain.SaleLine;
 import com.clothshop.sales.dto.SaleDtos.Bill;
@@ -15,6 +17,8 @@ import com.clothshop.sales.dto.SaleDtos.CartArticle;
 import com.clothshop.sales.dto.SaleDtos.CheckoutLine;
 import com.clothshop.sales.dto.SaleDtos.CheckoutRequest;
 import com.clothshop.sales.dto.SaleDtos.DaySummary;
+import com.clothshop.sales.dto.SaleDtos.SalesImportRequest;
+import com.clothshop.sales.dto.SaleDtos.SalesImportResponse;
 import com.clothshop.sales.repository.SaleRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -41,17 +45,19 @@ public class SaleService {
     private final ProductVariantRepository variants;
     private final SaleRepository sales;
     private final StaffRepository staff;
+    private final CustomerService customers;
     private final InventoryService inventory;
     private final BillNumberGenerator billNumbers;
     private final ZoneId shopZone;
 
     public SaleService(ProductVariantRepository variants, SaleRepository sales,
                        StaffRepository staff, InventoryService inventory,
-                       BillNumberGenerator billNumbers,
+                       BillNumberGenerator billNumbers, CustomerService customers,
                        @Value("${app.shop.zone}") String shopZone) {
         this.variants = variants;
         this.sales = sales;
         this.staff = staff;
+        this.customers = customers;
         this.inventory = inventory;
         this.billNumbers = billNumbers;
         this.shopZone = ZoneId.of(shopZone);
@@ -140,7 +146,11 @@ public class SaleService {
         sale.setBillNo(requestedBillNo == null ? billNumbers.next() : requestedBillNo);
         sale.setLocationId(location.getId());
         sale.setStaffId(request.staffId());
-        sale.setCustomerName(blankToNull(request.customerName()));
+        Customer customer = customers.findOrCreate(request.customerPhone(), request.customerName(), request.whatsappOptIn());
+        sale.setCustomerId(customer == null ? null : customer.getId());
+        sale.setWhatsappOptInSnapshot(customer != null && Boolean.TRUE.equals(request.whatsappOptIn()));
+        sale.setCustomerName(blankToNull(request.customerName()) != null
+                ? blankToNull(request.customerName()) : customer == null ? null : customer.getName());
         sale.setCustomerPhone(blankToNull(request.customerPhone()));
         sale.setPaymentMode(request.paymentMode());
         sale.setNote(blankToNull(request.note()));
@@ -157,7 +167,9 @@ public class SaleService {
 
             BigDecimal qty = requested.qty();
             BigDecimal unitPrice = money(requested.unitPrice());
-            BigDecimal unitCost = v.getAvgCost();
+            boolean historicalImport = request.createdAt() != null && Boolean.FALSE.equals(request.affectInventory());
+            BigDecimal unitCost = historicalImport && requested.historicalUnitCost() != null
+                    ? requested.historicalUnitCost() : v.getAvgCost();
             BigDecimal lineTotal = money(unitPrice.multiply(qty));
 
             SaleLine line = new SaleLine();
@@ -170,6 +182,7 @@ public class SaleService {
             line.setListPrice(v.getSellingPrice());
             line.setUnitPrice(unitPrice);
             line.setUnitCost(unitCost);
+            line.setCostEstimated(historicalImport && requested.historicalUnitCost() == null);
             line.setLineTotal(lineTotal);
             sale.addLine(line);
 
@@ -209,6 +222,16 @@ public class SaleService {
         return toBill(sale);
     }
 
+    /** Save a reviewed workbook as one transaction so a failed bill cannot leave a partial import. */
+    @Transactional
+    public SalesImportResponse importBills(SalesImportRequest request) {
+        if (request.bills().size() > 1000) {
+            throw ApiException.badRequest("IMPORT_TOO_LARGE", "Import up to 1,000 bills at a time.");
+        }
+        List<Bill> imported = request.bills().stream().map(this::checkout).toList();
+        return new SalesImportResponse(imported);
+    }
+
     // ------------------------------------------------------------------
     // Reading bills back
     // ------------------------------------------------------------------
@@ -216,6 +239,21 @@ public class SaleService {
     @Transactional(readOnly = true)
     public Bill bill(Long id) {
         return toBill(sales.findWithLines(id).orElseThrow(() -> ApiException.notFound("Bill")));
+    }
+
+    @Transactional
+    public Bill confirmWhatsAppSent(Long id) {
+        Sale sale = sales.findWithLines(id).orElseThrow(() -> ApiException.notFound("Bill"));
+        if (blankToNull(sale.getCustomerPhone()) == null) {
+            throw ApiException.badRequest("CUSTOMER_PHONE_REQUIRED", "Add a customer phone number before confirming a WhatsApp message.");
+        }
+        if (!sale.isWhatsappOptInSnapshot()) {
+            throw ApiException.badRequest("WHATSAPP_CONSENT_REQUIRED", "This bill has no recorded WhatsApp consent.");
+        }
+        sale.setWhatsappStatus("SENT");
+        sale.setWhatsappLastError(null);
+        sale.setWhatsappSentAt(Instant.now());
+        return toBill(sale);
     }
 
     /**
@@ -246,7 +284,8 @@ public class SaleService {
                 bills.stream()
                         .map(s -> new BillSummary(s.getId(), s.getBillNo(), s.getCreatedAt(),
                                 s.getCustomerName(), s.getCreatedBy(), itemCount(s),
-                                s.getTotal(), s.getProfit(), s.getPaymentMode().name()))
+                                s.getTotal(), s.getProfit(), s.getPaymentMode().name(),
+                                s.getLines().stream().anyMatch(SaleLine::isCostEstimated)))
                         .toList());
     }
 
@@ -257,16 +296,18 @@ public class SaleService {
     private Bill toBill(Sale s) {
         return new Bill(
                 s.getId(), s.getBillNo(), s.getCreatedAt(), s.getCreatedBy(),
-                s.getCustomerName(), s.getCustomerPhone(),
+                s.getCustomerName(), s.getCustomerPhone(), s.getCustomerId(),
                 s.getSubtotal(), s.getDiscount(), s.getTotal(),
                 s.getCostTotal(), s.getProfit(),
-                s.getPaymentMode().name(), s.getNote(), s.getStatus(),
+                s.getPaymentMode().name(), s.getNote(), s.getStatus(), s.getWhatsappStatus(),
+                s.isWhatsappOptInSnapshot(),
+                s.getLines().stream().anyMatch(SaleLine::isCostEstimated),
                 itemCount(s),
                 s.getLines().stream()
                         .map(l -> new BillLine(l.getVariantId(), l.getArticleCode(),
                                 l.getDescription(), l.getColour(), l.getSize(), l.getQty(),
                                 l.getListPrice(), l.getUnitPrice(), l.getUnitCost(),
-                                l.getLineTotal()))
+                                l.getLineTotal(), l.isCostEstimated()))
                         .toList());
     }
 

@@ -11,6 +11,9 @@ import { CartProvider } from './features/cart/CartContext'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import { LoginPage } from './features/auth/LoginPage'
 import { ImportPage } from './features/import/ImportPage'
+import { ReceiveStockPage } from './features/inventory/ReceiveStockPage'
+import { CustomerPage } from './features/customers/CustomerPage'
+import { ReturnPage } from './features/sales/ReturnPage'
 
 type View =
   | { name: 'dashboard' }
@@ -21,6 +24,9 @@ type View =
   /** A bill just rung up is carried in whole; an older one is fetched by id. */
   | { name: 'bill'; bill?: Bill; billId?: number }
   | { name: 'import'; kind: 'inventory' | 'sales' }
+  | { name: 'receive-stock'; variantId?: number }
+  | { name: 'customers' }
+  | { name: 'return'; saleId: number }
 
 export default function App() {
   const { data: session, isPending } = authClient.useSession()
@@ -61,6 +67,7 @@ function Shell({ onSignOut }: { onSignOut: () => void }) {
             variantId={view.variantId}
             onBack={toArticles}
             onOpenArticle={openArticle}
+            onReceiveStock={variantId => setView({ name: 'receive-stock', variantId })}
           />
         )
       case 'cart':
@@ -79,10 +86,17 @@ function Shell({ onSignOut }: { onSignOut: () => void }) {
             billId={view.billId}
             onNewSale={toArticles}
             onBack={toDashboard}
+            onReturn={() => setView({ name: 'return', saleId: view.billId ?? view.bill!.id })}
           />
         )
       case 'import':
         return <ImportPage kind={view.kind} onBack={toDashboard} />
+      case 'receive-stock':
+        return <ReceiveStockPage initialVariantId={view.variantId} onBack={() => view.variantId ? openArticle(view.variantId) : toDashboard()} />
+      case 'customers':
+        return <CustomerPage onBack={toDashboard} onOpenBill={openBill} />
+      case 'return':
+        return <ReturnPage saleId={view.saleId} onBack={() => openBill(view.saleId)} />
       default:
         return (
           <DashboardPage
@@ -92,6 +106,9 @@ function Shell({ onSignOut }: { onSignOut: () => void }) {
             onOpenBill={openBill}
             onImportInventory={() => setView({ name: 'import', kind: 'inventory' })}
             onImportSales={() => setView({ name: 'import', kind: 'sales' })}
+            onReceiveStock={() => setView({ name: 'receive-stock' })}
+            onCustomers={() => setView({ name: 'customers' })}
+            onOpenArticle={openArticle}
           />
         )
     }

@@ -9,6 +9,9 @@ import com.clothshop.catalog.dto.ArticleDtos.ArticleFilter;
 import com.clothshop.catalog.dto.ArticleDtos.ArticleListItem;
 import com.clothshop.catalog.dto.ArticleDtos.PreviewRequest;
 import com.clothshop.catalog.dto.ArticleDtos.PreviewResponse;
+import com.clothshop.catalog.dto.ArticleDtos.InventoryReceiptRequest;
+import com.clothshop.catalog.dto.ArticleDtos.InventoryReceiptResponse;
+import com.clothshop.catalog.dto.ArticleDtos.ReorderLevelRequest;
 import com.clothshop.catalog.service.ArticleService;
 import com.clothshop.platform.service.IdempotencyService;
 import jakarta.validation.Valid;
@@ -16,6 +19,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -63,11 +67,32 @@ public class ArticleController {
         });
     }
 
+    @PostMapping("/receive")
+    @ResponseStatus(HttpStatus.CREATED)
+    public InventoryReceiptResponse receive(@Valid @RequestBody InventoryReceiptRequest request,
+                                            @RequestHeader(value = "Idempotency-Key", required = false) String key) {
+        return idempotency.replay(key, InventoryReceiptResponse.class).orElseGet(() -> {
+            InventoryReceiptResponse response = articles.receive(request);
+            idempotency.remember(key, "POST /api/v1/articles/receive", response);
+            return response;
+        });
+    }
+
+    @PatchMapping("/{id}/reorder-level")
+    public ReorderLevelRequest setReorderLevel(@PathVariable Long id,
+                                               @Valid @RequestBody ReorderLevelRequest request) {
+        articles.setReorderLevel(id, request.reorderLevel());
+        return request;
+    }
+
     /** Everything known about one article, for deciding what to charge for it. */
     @GetMapping("/{id}")
     public ArticleDetail detail(@PathVariable Long id) {
         return articles.detail(id);
     }
+
+    @GetMapping("/by-code/{code}")
+    public ArticleDetail detailByCode(@PathVariable String code) { return articles.detailByCode(code); }
 
     /** Browse screen: free-text search plus any combination of the five dropdowns. */
     @GetMapping

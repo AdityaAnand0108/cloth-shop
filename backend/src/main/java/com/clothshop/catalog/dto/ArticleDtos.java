@@ -112,7 +112,9 @@ public final class ArticleDtos {
              * what you paid. This flag is the only real decision when stock is topped up.
              */
             boolean updateSellingPrice,
-            String note
+            String note,
+            String purchaseReference,
+            @DecimalMin(value = "0.00", message = "Reorder level cannot be negative") BigDecimal reorderLevel
     ) {
     }
 
@@ -139,6 +141,8 @@ public final class ArticleDtos {
             @NotNull(message = "Choose where this was bought from") Long wholesalerId,
             @NotNull(message = "Choose who is adding this") Long staffId,
             String note,
+            String purchaseReference,
+            @DecimalMin(value = "0.00", message = "Reorder level cannot be negative") BigDecimal reorderLevel,
             @NotEmpty(message = "Enter a quantity for at least one size")
             List<@Valid AddArticleBatchLine> sizes
     ) {
@@ -155,6 +159,36 @@ public final class ArticleDtos {
 
     public record AddArticleBatchResponse(List<AddArticleResponse> items) {
     }
+
+    public record InventoryReceiptRequest(
+            @NotNull Long wholesalerId,
+            @NotNull Long staffId,
+            String reference,
+            String note,
+            @NotEmpty List<@Valid InventoryReceiptLine> items
+    ) {}
+
+    public record InventoryReceiptLine(
+            Long variantId,
+            Long wholesalerId,
+            Long staffId,
+            Long articleTypeId,
+            Long brandId,
+            Long materialId,
+            Long colourId,
+            Long sizeId,
+            @NotNull @DecimalMin("0.00") BigDecimal buyingPrice,
+            @NotNull @DecimalMin("0.00") BigDecimal sellingPrice,
+            @NotNull @Positive BigDecimal quantity,
+            boolean updateSellingPrice,
+            @DecimalMin("0.00") BigDecimal reorderLevel,
+            String purchaseReference,
+            String note
+    ) {}
+
+    public record InventoryReceiptResponse(String reference, List<AddArticleResponse> items) {}
+
+    public record ReorderLevelRequest(@NotNull @DecimalMin("0.00") BigDecimal reorderLevel) {}
 
     // ---------- list ----------
 

@@ -57,6 +57,9 @@ public class SaleLine {
     @Column(name = "unit_cost", nullable = false, updatable = false, precision = 12, scale = 4)
     private BigDecimal unitCost;
 
+    @Column(name = "cost_estimated", nullable = false, updatable = false)
+    private boolean costEstimated;
+
     @Column(name = "line_total", nullable = false, updatable = false, precision = 12, scale = 2)
     private BigDecimal lineTotal;
 }
