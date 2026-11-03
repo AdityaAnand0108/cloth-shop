@@ -34,10 +34,10 @@ export default function App() {
   if (isPending) return <main className="login-page"><p className="muted">Checking your session…</p></main>
   if (!session?.user) return <LoginPage />
 
-  return <CartProvider><Shell onSignOut={() => { void authClient.signOut() }} /></CartProvider>
+  return <CartProvider><Shell userName={session.user.name || session.user.email} userImage={session.user.image} onSignOut={() => { void authClient.signOut() }} /></CartProvider>
 }
 
-function Shell({ onSignOut }: { onSignOut: () => void }) {
+function Shell({ userName, userImage, onSignOut }: { userName: string; userImage?: string | null; onSignOut: () => void }) {
   const [view, setView] = useState<View>({ name: 'dashboard' })
   // Held here so it survives opening an article and coming back.
   const [filters, setFilters] = useState<ArticleFilters>(NO_FILTERS)
@@ -100,6 +100,9 @@ function Shell({ onSignOut }: { onSignOut: () => void }) {
       default:
         return (
           <DashboardPage
+            userName={userName}
+            userImage={userImage}
+            onSignOut={onSignOut}
             onAdd={() => setView({ name: 'add-article' })}
             onViewArticles={toArticles}
             onOpenCart={toCart}
@@ -120,7 +123,6 @@ function Shell({ onSignOut }: { onSignOut: () => void }) {
 
   return (
     <>
-      <button type="button" className="sign-out" onClick={onSignOut}>Sign out</button>
       {page()}
       {showCartBar && <CartBar onOpenCart={toCart} />}
     </>

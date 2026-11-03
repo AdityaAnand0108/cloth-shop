@@ -6,6 +6,9 @@ import { useCart } from '../cart/CartContext'
 import { qty, rupees, time } from '../../money'
 
 type Props = {
+  userName: string
+  userImage?: string | null
+  onSignOut: () => void
   onAdd: () => void
   onViewArticles: () => void
   onOpenCart: () => void
@@ -31,7 +34,15 @@ function daysBefore(date: string, days: number) {
   return parsed.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 }
 
-export function DashboardPage({ onAdd, onViewArticles, onOpenCart, onOpenBill,
+function displayDate(date: string) {
+  const [year, month, day] = date.split('-').map(Number)
+  return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
+    .format(new Date(Date.UTC(year, month - 1, day, 12)))
+    .replace(/\s/, ' - ')
+    .replace(/\s/, ' - ')
+}
+
+export function DashboardPage({ userName, userImage, onSignOut, onAdd, onViewArticles, onOpenCart, onOpenBill,
   onImportInventory, onImportSales, onReceiveStock, onCustomers, onOpenArticle }: Props) {
   const cart = useCart()
   const [report, setReport] = useState<DashboardReport | null>(null)
@@ -109,6 +120,7 @@ export function DashboardPage({ onAdd, onViewArticles, onOpenCart, onOpenBill,
     <div className="page dashboard-page">
       <header className="page-head dashboard-head">
         <div><h1>BFlex</h1><p className="muted">Shop performance and today’s next actions</p></div>
+        <div className="dashboard-tools">
         <div className="dashboard-range">
           <div className="segmented" aria-label="Report range">
             <button type="button" className={`seg ${from === today && to === today ? 'on' : ''}`} onClick={() => { setFrom(today); setTo(today) }}>Today</button>
@@ -117,6 +129,13 @@ export function DashboardPage({ onAdd, onViewArticles, onOpenCart, onOpenBill,
           </div>
           <label className="field"><span>From</span><input type="date" value={from} max={to} onChange={e => setFrom(e.target.value)} /></label>
           <label className="field"><span>To</span><input type="date" value={to} min={from} max={today} onChange={e => setTo(e.target.value)} /></label>
+        </div>
+        <details className="account-menu">
+          <summary aria-label={`Account menu for ${userName}`} title={userName}>
+            {userImage ? <img src={userImage} alt="" /> : <span>{userName.split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase()}</span>}
+          </summary>
+          <div className="account-popover"><span className="account-name">{userName}</span><button type="button" onClick={onSignOut}>Sign out</button></div>
+        </details>
         </div>
       </header>
 
@@ -138,7 +157,7 @@ export function DashboardPage({ onAdd, onViewArticles, onOpenCart, onOpenBill,
       {report && (
         <>
           <section className="card dashboard-section">
-            <div className="list-head"><div><h2 className="section-title">Sales overview</h2><p className="muted small">{report.from === report.to ? report.to : `${report.from} to ${report.to}`}</p></div><span className="muted small">{qty(report.sales.billCount)} bills · {qty(report.sales.returnCount)} returns</span></div>
+            <div className="list-head sales-overview-head"><div><h2 className="section-title">Sales overview</h2><span className="date-chip">{report.from === report.to ? displayDate(report.to) : `${displayDate(report.from)} – ${displayDate(report.to)}`}</span></div><span className="muted small">{qty(report.sales.billCount)} bills · {qty(report.sales.returnCount)} returns</span></div>
             <div className="stats dashboard-stats">
               <Stat label="Net sales" value={rupees(report.sales.takings)} strong />
               <Stat label="Estimated profit" value={rupees(report.sales.profit)} tone={report.sales.profit >= 0 ? 'ok' : 'bad'} hint={report.sales.estimatedProfitBills ? `${report.sales.estimatedProfitBills} bill(s) use estimated cost` : 'Cost recorded at sale'} />
@@ -188,7 +207,7 @@ export function DashboardPage({ onAdd, onViewArticles, onOpenCart, onOpenBill,
               {report.slowMovers.length === 0 ? <p className="muted">No stock on hand.</p> : <div className="table-scroll"><table><thead><tr><th>Article</th><th>Last sold</th><th className="r">Qty</th><th className="r">Value at cost</th></tr></thead><tbody>{report.slowMovers.map(item => <tr key={item.variantId}><td><button type="button" className="code-link" onClick={() => onOpenArticle(item.variantId)}>{item.articleCode}</button><div className="muted small">{item.colour} · {item.size}</div></td><td>{item.daysSinceSale === null ? 'Never sold' : `${qty(item.daysSinceSale)} days ago`}</td><td className="r num">{qty(item.quantity)}</td><td className="r num">{rupees(item.stockAtCost)}</td></tr>)}</tbody></table></div>}
             </section>
             <section className="card dashboard-section">
-              <div className="list-head"><h2 className="section-title">Bills on {to}</h2><span className="muted small">{day?.billCount ?? 0} bills</span></div>
+              <div className="list-head"><h2 className="section-title">Bills on {displayDate(to)}</h2><span className="muted small">{day?.billCount ?? 0} bills</span></div>
               {!day?.bills.length ? <p className="muted">No sales recorded on this date.</p> : <div className="table-scroll"><table><thead><tr><th>Bill</th><th>Time</th><th>Customer</th><th className="r">Total</th><th></th></tr></thead><tbody>{day.bills.map(b => <tr key={b.id}><td><button type="button" className="code-link" onClick={() => onOpenBill(b.id)}>{b.billNo}</button></td><td>{time(b.createdAt)}</td><td>{b.customerName ?? <span className="muted">Walk-in</span>}</td><td className="r num">{rupees(b.total)}{b.profitEstimated && <small className="warn block">Estimated cost</small>}</td><td className="r"><button type="button" className="ghost small-btn" onClick={() => onOpenBill(b.id)}>Open</button></td></tr>)}</tbody></table></div>}
             </section>
           </div>

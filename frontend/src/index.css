@@ -59,7 +59,6 @@ code, .num, .mono { font-family: 'Cascadia Mono', Consolas, ui-monospace, monosp
 .login-card { width: min(100%, 420px); }
 .login-card h1 { margin: 0; font-size: 28px; }
 .login-card .primary { width: 100%; }
-.sign-out { position: fixed; top: 14px; right: max(18px, calc((100vw - 1240px) / 2)); z-index: 40; border-color: var(--border); background: rgba(255,255,255,.92); }
 .page-head h1 { margin: 0 0 8px; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
 .page-head .muted { margin: 0; max-width: 62ch; }
 .dashboard-date { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
@@ -877,11 +876,22 @@ button.big { padding: 14px 28px; font-size: 16px; }
 
 /* Shop workflows added after the first counter release. */
 .dashboard-page { max-width: 1480px; }
-.dashboard-head { display: flex; width: 100%; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 18px 28px; }
-.dashboard-head > div:first-child { flex: 1 1 270px; }
-.dashboard-range { display: flex; align-items: end; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.dashboard-head { display: flex; width: 100%; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 18px 28px; }
+.dashboard-head > div:first-child { flex: 1 1 250px; }
+.dashboard-tools { display: flex; align-items: center; justify-content: flex-end; gap: 16px; min-width: 0; flex: 0 1 auto; }
+.dashboard-range { display: grid; grid-template-columns: auto repeat(2, minmax(145px, 160px)); align-items: end; justify-content: end; gap: 10px; min-width: 0; }
+.dashboard-range .segmented { grid-column: 1; }
 .dashboard-range .field { width: 155px; min-width: 135px; }
 .dashboard-range .field input { min-height: 44px; }
+.account-menu { position: relative; flex: none; }
+.account-menu summary { display: grid; width: 44px; height: 44px; place-items: center; overflow: hidden; border: 1px solid var(--border-strong); border-radius: 50%; background: var(--accent-soft); color: var(--accent); cursor: pointer; font-size: 14px; font-weight: 750; list-style: none; }
+.account-menu summary::-webkit-details-marker { display: none; }
+.account-menu summary img { width: 100%; height: 100%; object-fit: cover; }
+.account-popover { position: absolute; z-index: 10; top: calc(100% + 9px); right: 0; display: grid; min-width: 190px; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); box-shadow: var(--shadow-sm); }
+.account-name { overflow: hidden; color: var(--ink-2); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.account-popover button { width: 100%; text-align: left; }
+.sales-overview-head > div { display: grid; justify-items: start; gap: 9px; }
+.date-chip { display: inline-flex; align-items: center; width: fit-content; padding: 4px 10px; border: 1px solid #d6e5dc; border-radius: 999px; background: var(--accent-soft); color: var(--accent-strong); font-size: 12px; font-weight: 650; line-height: 1.4; }
 .dashboard-actions { flex-wrap: wrap; }
 .dashboard-two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 16px 0; }
 .dashboard-section { min-width: 0; }
@@ -942,14 +952,16 @@ button.big { padding: 14px 28px; font-size: 16px; }
 @media (max-width: 900px) {
   .dashboard-two-col { grid-template-columns: 1fr; }
   .dashboard-head { align-items: flex-start; flex-direction: column; }
-  .dashboard-range { justify-content: flex-start; width: 100%; }
+  .dashboard-tools { justify-content: space-between; width: 100%; }
+  .dashboard-range { justify-content: flex-start; }
   .mapping-grid { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
 }
 
 @media (max-width: 620px) {
-  .dashboard-range { align-items: stretch; }
-  .dashboard-range .segmented { width: 100%; }
-  .dashboard-range .field { flex: 1 1 130px; }
+  .dashboard-tools { align-items: flex-start; }
+  .dashboard-range { grid-template-columns: repeat(2, minmax(0, 1fr)); flex: 1; }
+  .dashboard-range .segmented { grid-column: 1 / -1; width: 100%; }
+  .dashboard-range .field { width: auto; min-width: 0; }
   .metric-bar-row { grid-template-columns: 54px minmax(45px, 1fr) auto; gap: 7px; }
   .metric-bar-row strong { min-width: 75px; font-size: 12px; }
   .rank-row { grid-template-columns: 1fr auto; }
