@@ -49,6 +49,10 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
   const [duplicates, setDuplicates] = useState<DuplicateSize[] | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [banner, setBanner] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
+  const [successToast, setSuccessToast] = useState<string | null>(null)
+  const toastTimer = useRef<number | null>(null)
+
+  useEffect(() => () => { if (toastTimer.current !== null) window.clearTimeout(toastTimer.current) }, [])
 
   // One key per form session. Reused across retries so a double-tap is harmless;
   // reset only after a submission actually succeeds.
@@ -184,15 +188,14 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
         })),
       }, idempotencyKey.current)
 
-      setBanner({
-        kind: 'ok',
-        text: `Saved ${res.items.length} colour and size variants: ${res.items.map((item, index) =>
-          `${selectedLines[index]?.colourName ?? ''} ${selectedLines[index]?.sizeName ?? item.articleCode} +${selectedLines[index]?.quantity ?? ''} (total ${item.qtyOnHand})`,
-        ).join(', ')}.`,
-      })
-
+      const message = `Added ${res.items.length} size${res.items.length === 1 ? '' : 's'} to inventory successfully.`
+      setSuccessToast(message)
+      if (toastTimer.current !== null) window.clearTimeout(toastTimer.current)
+      toastTimer.current = window.setTimeout(() => setSuccessToast(null), 4500)
       setDuplicates(null)
-      resetForm()
+      setQuantities({})
+      setPreviews({})
+      idempotencyKey.current = newIdempotencyKey()
     } catch (e) {
       if (e instanceof HttpError && ['ARTICLE_EXISTS', 'ARTICLE_MISSING'].includes(e.body.code)) {
         setDuplicates(null)
@@ -252,6 +255,7 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
       </header>
 
       {banner && <div className={`banner ${banner.kind}`}>{banner.text}</div>}
+      {successToast && <div className="success-toast" role="status" aria-live="polite">{successToast}</div>}
 
       <form className="card" onSubmit={handleFormSubmit}>
         <div className="grid">
@@ -370,14 +374,18 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
                               : preview ? 'New' : 'Waiting…'
                         return (
                           <td key={key}>
-                            <input
-                              aria-label={`${lookups.colours.find(c => String(c.id) === colourId)?.name} quantity for size ${size.name}`}
-                              type="number" min="0" step="1" inputMode="numeric"
-                              placeholder="0"
-                              value={quantity}
-                              onChange={e => setQuantities(current => ({ ...current, [key]: e.target.value }))}
-                              disabled={!attributesSelected || submitting}
-                            />
+                            <div className="quantity-stepper">
+                              <button type="button" aria-label={`Decrease ${size.name} quantity`} disabled={!attributesSelected || submitting || Number(quantity || 0) <= 0} onClick={() => setQuantities(current => ({ ...current, [key]: String(Math.max(0, Number(current[key] || 0) - 1)) }))}>−</button>
+                              <input
+                                aria-label={`${lookups.colours.find(c => String(c.id) === colourId)?.name} quantity for size ${size.name}`}
+                                type="number" min="0" step="1" inputMode="numeric"
+                                placeholder="0"
+                                value={quantity}
+                                onChange={e => setQuantities(current => ({ ...current, [key]: e.target.value }))}
+                                disabled={!attributesSelected || submitting}
+                              />
+                              <button type="button" aria-label={`Increase ${size.name} quantity`} disabled={!attributesSelected || submitting} onClick={() => setQuantities(current => ({ ...current, [key]: String(Number(current[key] || 0) + 1) }))}>+</button>
+                            </div>
                             <small className={preview?.exists ? 'warn' : 'muted'}>{status}</small>
                           </td>
                         )

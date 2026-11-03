@@ -99,6 +99,12 @@ code, .num, .mono { font-family: 'Cascadia Mono', Consolas, ui-monospace, monosp
 .batch-size-table th, .batch-size-table td { padding: 9px 12px; }
 .batch-size-table tbody th { border-bottom: 1px solid var(--border); color: var(--ink-2); font-size: 13px; letter-spacing: 0; text-transform: none; }
 .batch-size-table td input[type='number'] { width: 112px; padding: 7px 9px; }
+.quantity-stepper { display: flex; align-items: stretch; width: 100%; min-width: 118px; }
+.quantity-stepper input { width: auto !important; min-width: 0; flex: 1; padding: 7px 6px !important; border-radius: 0 !important; text-align: center; font-variant-numeric: tabular-nums; }
+.quantity-stepper button { width: 34px; flex: none; padding: 0; border-radius: var(--radius-sm) 0 0 var(--radius-sm); box-shadow: none; font-size: 18px; font-weight: 700; }
+.quantity-stepper button:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.quantity-stepper button:disabled { opacity: .45; }
+.success-toast { position: fixed; z-index: 100; right: 24px; bottom: 24px; max-width: min(420px, calc(100vw - 32px)); padding: 13px 18px; border: 1px solid #bfe6d4; border-radius: 10px; background: var(--success-soft); box-shadow: var(--shadow-sm); color: var(--success); font-weight: 650; }
 .batch-size-table td code { font-size: 12px; }
 .batch-size-table td.warn { color: var(--warning); font-weight: 600; }
 .batch-price-choice { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; font-size: 14px; }
