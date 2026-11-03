@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { api } from '../../api/client'
 import type { DashboardReport, DaySummary } from '../../api/types'
@@ -36,10 +36,27 @@ function daysBefore(date: string, days: number) {
 
 function displayDate(date: string) {
   const [year, month, day] = date.split('-').map(Number)
-  return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
-    .format(new Date(Date.UTC(year, month - 1, day, 12)))
-    .replace(/\s/, ' - ')
-    .replace(/\s/, ' - ')
+  const parts = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
+    .formatToParts(new Date(Date.UTC(year, month - 1, day, 12)))
+  return ['day', 'month', 'year'].map(type => parts.find(part => part.type === type)?.value ?? '').join(' - ')
+}
+
+function DatePicker({ label, value, min, max, onChange }: {
+  label: string; value: string; min?: string; max?: string; onChange: (value: string) => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  return (
+    <label className="field date-picker-field">
+      <span>{label}</span>
+      <span className="date-picker-control">
+        <span className="date-picker-value">{displayDate(value)}</span>
+        <button type="button" className="date-picker-trigger" aria-label={`Choose ${label.toLowerCase()} date`} onClick={() => inputRef.current?.showPicker()}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M7.5 3.5v3M16.5 3.5v3M3.5 9h17"/></svg>
+        </button>
+        <input ref={inputRef} type="date" tabIndex={-1} aria-label={`${label} date`} value={value} min={min} max={max} onChange={event => onChange(event.target.value)} />
+      </span>
+    </label>
+  )
 }
 
 export function DashboardPage({ userName, userImage, onSignOut, onAdd, onViewArticles, onOpenCart, onOpenBill,
@@ -127,8 +144,8 @@ export function DashboardPage({ userName, userImage, onSignOut, onAdd, onViewArt
             <button type="button" className={`seg ${from === daysBefore(today, 6) && to === today ? 'on' : ''}`} onClick={() => range(7)}>7 days</button>
             <button type="button" className={`seg ${from === daysBefore(today, 29) && to === today ? 'on' : ''}`} onClick={() => range(30)}>30 days</button>
           </div>
-          <label className="field"><span>From</span><input type="date" value={from} max={to} onChange={e => setFrom(e.target.value)} /></label>
-          <label className="field"><span>To</span><input type="date" value={to} min={from} max={today} onChange={e => setTo(e.target.value)} /></label>
+          <DatePicker label="From" value={from} max={to} onChange={setFrom} />
+          <DatePicker label="To" value={to} min={from} max={today} onChange={setTo} />
         </div>
         <details className="account-menu">
           <summary aria-label={`Account menu for ${userName}`} title={userName}>

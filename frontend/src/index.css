@@ -876,13 +876,19 @@ button.big { padding: 14px 28px; font-size: 16px; }
 
 /* Shop workflows added after the first counter release. */
 .dashboard-page { max-width: 1480px; }
-.dashboard-head { display: flex; width: 100%; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 18px 28px; }
+.dashboard-head { display: flex; width: 100%; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 18px 28px; }
 .dashboard-head > div:first-child { flex: 1 1 250px; }
-.dashboard-tools { display: flex; align-items: center; justify-content: flex-end; gap: 16px; min-width: 0; flex: 0 1 auto; }
-.dashboard-range { display: grid; grid-template-columns: auto repeat(2, minmax(145px, 160px)); align-items: end; justify-content: end; gap: 10px; min-width: 0; }
-.dashboard-range .segmented { grid-column: 1; }
+.dashboard-tools { display: flex; align-items: flex-start; justify-content: flex-end; gap: 14px; min-width: 0; flex: 0 1 auto; }
+.dashboard-range { display: grid; grid-template-columns: repeat(2, minmax(145px, 160px)); align-items: end; justify-content: end; gap: 10px; min-width: 0; }
+.dashboard-range .segmented { grid-column: 1 / -1; justify-self: end; }
 .dashboard-range .field { width: 155px; min-width: 135px; }
-.dashboard-range .field input { min-height: 44px; }
+.date-picker-control { position: relative; display: flex; align-items: center; width: 100%; height: 44px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); box-shadow: var(--shadow-xs); }
+.date-picker-value { min-width: 0; flex: 1; padding: 0 10px 0 12px; color: var(--ink); font-size: 14px; white-space: nowrap; }
+.date-picker-trigger { display: grid; width: 40px; height: 40px; flex: none; place-items: center; padding: 0; border: 0; background: transparent; box-shadow: none; color: var(--ink-2); }
+.date-picker-trigger:hover { background: var(--surface-2); box-shadow: none; }
+.date-picker-trigger svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
+.date-picker-control input[type='date'] { position: absolute; right: 0; width: 40px; height: 40px; padding: 0; opacity: 0; pointer-events: none; }
+.date-picker-control:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 .account-menu { position: relative; flex: none; }
 .account-menu summary { display: grid; width: 44px; height: 44px; place-items: center; overflow: hidden; border: 1px solid var(--border-strong); border-radius: 50%; background: var(--accent-soft); color: var(--accent); cursor: pointer; font-size: 14px; font-weight: 750; list-style: none; }
 .account-menu summary::-webkit-details-marker { display: none; }
@@ -952,15 +958,15 @@ button.big { padding: 14px 28px; font-size: 16px; }
 @media (max-width: 900px) {
   .dashboard-two-col { grid-template-columns: 1fr; }
   .dashboard-head { align-items: flex-start; flex-direction: column; }
-  .dashboard-tools { justify-content: space-between; width: 100%; }
-  .dashboard-range { justify-content: flex-start; }
+  .dashboard-tools { justify-content: flex-end; width: 100%; }
+  .dashboard-range { justify-content: end; }
   .mapping-grid { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
 }
 
 @media (max-width: 620px) {
-  .dashboard-tools { align-items: flex-start; }
+  .dashboard-tools { align-items: flex-start; justify-content: space-between; }
   .dashboard-range { grid-template-columns: repeat(2, minmax(0, 1fr)); flex: 1; }
-  .dashboard-range .segmented { grid-column: 1 / -1; width: 100%; }
+  .dashboard-range .segmented { grid-column: 1 / -1; justify-self: stretch; width: 100%; }
   .dashboard-range .field { width: auto; min-width: 0; }
   .metric-bar-row { grid-template-columns: 54px minmax(45px, 1fr) auto; gap: 7px; }
   .metric-bar-row strong { min-width: 75px; font-size: 12px; }
