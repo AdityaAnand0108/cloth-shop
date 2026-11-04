@@ -38,7 +38,24 @@ function columnsFor(kind: Kind) { return kind === 'inventory' ? INVENTORY_COLUMN
 function requiredFor(kind: Kind) {
   return kind === 'inventory'
     ? ['Article Type', 'Brand', 'Material', 'Colour', 'Size', 'Buying Price', 'Selling Price', 'Quantity', 'Wholesaler', 'Added By']
-    : ['Bill Number', 'Sale Date', 'Article Code', 'Quantity', 'Unit Price', 'Payment Mode', 'Staff']
+    : ['Sale Date', 'Article Code', 'Quantity', 'Unit Price', 'Payment Mode', 'Staff']
+}
+function assignMissingBillNumbers(rows: Row[]): Row[] {
+  const billByGroup = new Map<string, string>()
+  let next = 1
+  return rows.map((row, index) => {
+    if (value(row, 'Bill Number') && !/^IMP-[A-Z0-9]+-\d{3}$/.test(value(row, 'Bill Number'))) return row
+    const customer = value(row, 'Customer Name').trim().toLocaleLowerCase()
+    // Rows with the same customer and sale date represent lines on one bill.
+    // Without a customer name there is no safe way to infer a shared bill.
+    const group = customer ? `${value(row, 'Sale Date')}|${customer}` : `row-${index}`
+    let billNo = billByGroup.get(group)
+    if (!billNo) {
+      billNo = `IMP-${Date.now().toString(36).toUpperCase()}-${String(next++).padStart(3, '0')}`
+      billByGroup.set(group, billNo)
+    }
+    return { ...row, billnumber: billNo }
+  })
 }
 function numberValue(text: string) {
   const clean = text.replace(/[₹,$,\s]/g, '')
@@ -72,6 +89,11 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
   const [historicalOnly, setHistoricalOnly] = useState(true)
   const [result, setResult] = useState<string | null>(null)
   const [addingBrandForRow, setAddingBrandForRow] = useState<number | null>(null)
+  const [unknownArticleCodes, setUnknownArticleCodes] = useState<Set<string>>(new Set())
+  const [articleCheck, setArticleCheck] = useState<'idle' | 'checking' | 'done'>('idle')
+  const [search, setSearch] = useState('')
+  const [issuesOnly, setIssuesOnly] = useState(false)
+  const [page, setPage] = useState(0)
 
   const columns = columnsFor(kind)
   const required = requiredFor(kind)
@@ -92,6 +114,38 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
   }
 
   const missingMappings = required.filter(column => !mapping[key(column)])
+  useEffect(() => {
+    if (kind !== 'sales' || rows.length === 0) {
+      setUnknownArticleCodes(new Set())
+      setArticleCheck('idle')
+      return
+    }
+    let cancelled = false
+    const codes = [...new Set(rows.map(row => value(row, 'Article Code')).filter(Boolean))]
+    if (!codes.length) {
+      setUnknownArticleCodes(new Set())
+      setArticleCheck('done')
+      return
+    }
+    setArticleCheck('checking')
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        const unknown = new Set<string>()
+        for (let start = 0; start < codes.length; start += 20) {
+          if (cancelled) return
+          const batch = await Promise.all(codes.slice(start, start + 20).map(async code => ({
+            code, found: await api.articleByCode(code).catch(() => null),
+          })))
+          batch.filter(result => !result.found).forEach(result => unknown.add(result.code.toLowerCase()))
+        }
+        if (cancelled) return
+        setUnknownArticleCodes(unknown)
+        setArticleCheck('done')
+      })()
+    }, 300)
+    return () => { cancelled = true; window.clearTimeout(timer) }
+  }, [rows, kind])
+
   const validation = useMemo(() => {
     const errors: string[] = []
     const inventoryKeys = new Set<string>()
@@ -117,6 +171,8 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
         if (!Number.isFinite(amount) || amount < 0) errors.push(`Row ${rowNumber}: ${header} must be a valid amount of zero or more.`)
       }
       if (kind === 'sales') {
+        const code = value(row, 'Article Code')
+        if (code && unknownArticleCodes.has(code.toLowerCase())) errors.push(`Row ${rowNumber}: article code ${code} was not found in inventory.`)
         const date = value(row, 'Sale Date')
         if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) errors.push(`Row ${rowNumber}: use a valid sale date.`)
         const bill = value(row, 'Bill Number')
@@ -139,7 +195,44 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
       }
     })
     return [...new Set(errors)]
-  }, [rows, required, lookups, kind])
+  }, [rows, required, lookups, kind, unknownArticleCodes])
+
+  const pageSize = 50
+  const rowIssues = (index: number) => validation.filter(message => message.startsWith(`Row ${index + 2}:`))
+  const filteredRows = rows.map((row, index) => ({ row, index })).filter(({ row, index }) => {
+    if (issuesOnly && !rowIssues(index).length) return false
+    return !search.trim() || Object.values(row).join(' ').toLowerCase().includes(search.trim().toLowerCase())
+  })
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / pageSize))
+  const visibleRows = filteredRows.slice(page * pageSize, (page + 1) * pageSize)
+
+  function goToIssues() {
+    setIssuesOnly(true); setPage(0)
+    window.setTimeout(() => {
+      const firstCell = document.querySelector('.import-cell-error')
+      const target = firstCell ?? document.getElementById('import-errors')
+      target?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }, 0)
+  }
+
+  function showAllRows() {
+    setSearch(''); setIssuesOnly(false); setPage(0)
+    window.setTimeout(() => document.getElementById('import-review-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
+  }
+
+  function goToMapping() {
+    document.querySelector('.column-mapping')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  function issuesForCell(index: number, header: string) {
+    return rowIssues(index).filter(message => {
+      const text = message.toLowerCase()
+      const field = header.toLowerCase()
+      return text.includes(field) || (header === 'Sale Date' && text.includes('valid sale date')) ||
+        (header === 'Article Code' && text.includes('article code')) ||
+        (header === 'Quantity' && text.includes('quantity'))
+    })
+  }
 
   async function readFile(file: File) {
     setError(null); setResult(null); setFileName(file.name)
@@ -158,17 +251,23 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
       }))
       const nextMapping = Object.fromEntries(columns.map(column => [key(column), sourceIndex(headers, column)]))
       setSourceColumns(headers); setRawRows(raw); setMapping(nextMapping)
-      setRows(mapRows(raw, nextMapping, columns))
+      setRows(kind === 'sales' ? assignMissingBillNumbers(mapRows(raw, nextMapping, columns)) : mapRows(raw, nextMapping, columns))
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not read this workbook') }
   }
 
   function changeMapping(header: string, sourceId: string) {
     const next = { ...mapping, [key(header)]: sourceId }
-    setMapping(next); setRows(mapRows(rawRows, next, columns))
+    setMapping(next)
+    const mapped = mapRows(rawRows, next, columns)
+    setRows(kind === 'sales' ? assignMissingBillNumbers(mapped) : mapped)
   }
 
   function updateRow(index: number, header: string, next: string) {
-    setRows(current => current.map((row, rowIndex) => rowIndex === index ? { ...row, [key(header)]: next } : row))
+    setRows(current => {
+      const updated = current.map((row, rowIndex) => rowIndex === index ? { ...row, [key(header)]: next } : row)
+      return kind === 'sales' && ['Customer Name', 'Sale Date', 'Bill Number'].includes(header)
+        ? assignMissingBillNumbers(updated) : updated
+    })
   }
 
   function fillBlankRows(header: string) {
@@ -176,6 +275,13 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
     if (!source) return
     const sharedValue = value(source, header)
     setRows(current => current.map(row => value(row, header) ? row : { ...row, [key(header)]: sharedValue }))
+  }
+
+  function fillBlankSalesRows(header: string) {
+    const shared = rows.find(row => value(row, header))
+    if (!shared) return
+    const sharedValue = value(shared, header)
+    setRows(current => assignMissingBillNumbers(current.map(row => value(row, header) ? row : { ...row, [key(header)]: sharedValue })))
   }
 
   function editCell(row: Row, index: number, header: string) {
@@ -272,7 +378,7 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
     XLSX.utils.book_append_sheet(workbook, sheet, 'Import')
     const guide = kind === 'inventory'
       ? [['Inventory import guide'], ['One row per colour and size variant. Use names or saved short codes for catalogue fields.'], ['Quantity must be a whole number greater than zero.'], ['Invoice / Reference and Reorder Level are optional.']]
-      : [['Sales import guide'], ['Use one row per article line. Repeat bill number, date, staff, payment mode and customer details on every line of a bill.'], ['Historical import leaves current stock unchanged.'], ['Unit Cost is optional; imported profit is marked estimated when it is blank.']]
+      : [['Sales import guide'], ['Use one row per article line. Bill Number is optional; rows with the same customer name and sale date share a generated bill number when it is blank.'], ['Repeat date, staff, payment mode and customer details on every line of a bill.'], ['Historical import leaves current stock unchanged.'], ['Unit Cost is optional; imported profit is marked estimated when it is blank.']]
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(guide), 'Read me')
     XLSX.writeFile(workbook, `${kind}-import-template.xlsx`)
   }
@@ -282,16 +388,35 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
     {error && <div className="banner err">{error}</div>}{result && <div className="banner ok">{result}</div>}
     <section className="card import-card">
       <div className="import-toolbar"><label className="primary file-button">Choose Excel file<input type="file" accept=".xlsx,.xls,.csv" onChange={e => e.target.files?.[0] && void readFile(e.target.files[0])} /></label><span className="muted small">{fileName || 'No file selected'}</span><button type="button" className="link" onClick={downloadTemplate}>Download Excel template</button></div>
-      {kind === 'sales' && <div className="import-mode"><label className="inline-check"><input type="checkbox" checked={historicalOnly} onChange={e => setHistoricalOnly(e.target.checked)} /> Historical sales: record bills without changing current stock</label><p className="muted small">Add a Unit Cost column when known. Missing historical cost is clearly marked as estimated in profit reports.</p></div>}
+      {kind === 'sales' && <div className="import-mode"><label className="inline-check"><input type="checkbox" checked={historicalOnly} onChange={e => setHistoricalOnly(e.target.checked)} /> Historical sales: record bills without changing current stock</label><p className="muted small">Historical mode does not change today’s inventory. Add Unit Cost when known; missing cost means imported profit is estimated.</p></div>}
       {sourceColumns.length > 0 && <details className="column-mapping" open={missingMappings.length > 0}><summary>Review column mapping · {missingMappings.length ? `${missingMappings.length} required field(s) need a match` : 'automatic matches ready'}</summary><div className="mapping-grid">{columns.map(column => <label className="field" key={column}><span>{column}{required.includes(column) ? ' · required' : ''}</span><select value={mapping[key(column)] ?? ''} onChange={e => changeMapping(column, e.target.value)}><option value="">Not in workbook</option>{sourceColumns.map(source => <option key={source.id} value={source.id}>{source.label}</option>)}</select></label>)}</div><p className="muted small">Automatic matching recognizes common headings such as Qty, Colour/Color, Supplier, Mobile, SKU, Rate and Remarks. Choose a source column manually whenever a heading is ambiguous.</p></details>}
       {missingMappings.length > 0 && <div className="banner err">Map these required fields before saving: {missingMappings.join(', ')}.</div>}
       {rows.length === 0 ? <p className="muted">Upload an Excel workbook to review its rows here.</p> : <>
-        <div className="import-summary"><strong>{rows.length} rows</strong><span>{validation.length ? `${validation.length} issue(s) to fix` : 'All rows are ready to save'}</span><span>{kind === 'sales' ? `${new Set(rows.map(row => value(row, 'Bill Number')).filter(Boolean)).size} bills` : `${new Set(rows.map(row => `${value(row, 'Article Type')}:${value(row, 'Brand')}:${value(row, 'Colour')}:${value(row, 'Size')}`)).size} variants`}</span></div>
+        <div className="import-summary">
+          <button type="button" className="import-summary-card" onClick={showAllRows}><strong>{rows.length}</strong><span>rows · review all</span></button>
+          <button type="button" className={`import-summary-card ${validation.length || missingMappings.length ? 'has-issues' : ''}`} onClick={validation.length ? goToIssues : missingMappings.length ? goToMapping : undefined} disabled={!validation.length && !missingMappings.length}>
+            <strong>{validation.length || missingMappings.length || (articleCheck === 'checking' ? '…' : '✓')}</strong><span>{validation.length ? 'issues · show affected rows' : missingMappings.length ? 'fields need mapping · review' : articleCheck === 'checking' ? 'checking article codes' : 'ready to save'}</span>
+          </button>
+          <button type="button" className="import-summary-card" onClick={showAllRows}>
+            <strong>{kind === 'sales' ? new Set(rows.map(row => value(row, 'Bill Number')).filter(Boolean)).size : new Set(rows.map(row => `${value(row, 'Article Type')}:${value(row, 'Brand')}:${value(row, 'Colour')}:${value(row, 'Size')}`)).size}</strong>
+            <span>{kind === 'sales' ? 'bills · review grouping' : 'variants · review rows'}</span>
+          </button>
+        </div>
+        {kind === 'sales' && <div className="import-bill-help"><strong>How bills are grouped</strong><span>Rows with the same bill number are one bill. Missing numbers are generated; matching customer names on the same sale date share a bill. Rows without a customer name stay separate.</span></div>}
         {kind === 'inventory' && <p className="muted small import-help">Blank cells mean the workbook did not include a value for that field. Choose a saved catalogue item, add a new brand when needed, then use “Fill blanks” for shared article details.</p>}
-        <div className="table-scroll"><table className="import-table"><thead><tr>{columns.map(header => <th key={header}><span>{header}</span>{SHARED_INVENTORY_COLUMNS.has(header) && rows.some(row => !value(row, header)) && rows.some(row => value(row, header)) && <button type="button" className="link import-fill-blanks" onClick={() => fillBlankRows(header)}>Fill blanks</button>}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{columns.map(header => <td key={header}>{editCell(row, index, header)}</td>)}</tr>)}</tbody></table></div>
+        <div className="import-review-tools">
+          <label className="field import-search"><span>Search rows</span><input value={search} onChange={event => { setSearch(event.target.value); setPage(0) }} placeholder="Bill, customer, article code…" /></label>
+          <label className="inline-check"><input type="checkbox" checked={issuesOnly} onChange={event => { setIssuesOnly(event.target.checked); setPage(0) }} /> Show rows with issues only</label>
+          <span className="muted small">Showing {filteredRows.length ? page * pageSize + 1 : 0}–{Math.min((page + 1) * pageSize, filteredRows.length)} of {filteredRows.length} matching rows</span>
+          <div className="import-pagination"><button type="button" className="ghost" disabled={page === 0} onClick={() => setPage(current => current - 1)}>Previous</button><span>Page {page + 1} of {pageCount}</span><button type="button" className="ghost" disabled={page + 1 >= pageCount} onClick={() => setPage(current => current + 1)}>Next</button></div>
+        </div>
+        <div className="table-scroll" id="import-review-table"><table className="import-table"><thead><tr>{columns.map(header => <th key={header}><span>{header}</span>{(SHARED_INVENTORY_COLUMNS.has(header) || (kind === 'sales' && ['Sale Date', 'Customer Name', 'Customer Phone', 'Payment Mode', 'Staff'].includes(header))) && rows.some(row => !value(row, header)) && rows.some(row => value(row, header)) && <button type="button" className="link import-fill-blanks" onClick={() => kind === 'sales' ? fillBlankSalesRows(header) : fillBlankRows(header)}>Fill blanks</button>}</th>)}</tr></thead><tbody>{visibleRows.map(({ row, index }) => <tr key={index}>{columns.map(header => {
+          const cellIssues = issuesForCell(index, header)
+          return <td key={header} className={cellIssues.length ? 'import-cell-error' : undefined} title={cellIssues.join(' ')}>{editCell(row, index, header)}</td>
+        })}</tr>)}</tbody></table>{filteredRows.length === 0 && <p className="muted import-empty-results">No rows match these filters.</p>}</div>
       </>}
-      {validation.length > 0 && <div className="import-errors"><strong>Resolve these rows before saving</strong>{validation.slice(0, 8).map(message => <p key={message}>{message}</p>)}{validation.length > 8 && <p>…and {validation.length - 8} more issues.</p>}</div>}
-      <div className="actions"><button type="button" className="primary" disabled={!rows.length || validation.length > 0 || missingMappings.length > 0 || busy || !lookups} onClick={() => void save()}>{busy ? 'Validating and saving…' : `Validate and save ${rows.length || ''} rows`}</button><button type="button" className="ghost" onClick={onBack}>Cancel</button></div>
+      {validation.length > 0 && <div className="import-errors" id="import-errors"><strong>Resolve these rows before saving</strong>{validation.slice(0, 8).map(message => <p key={message}>{message}</p>)}{validation.length > 8 && <p>…and {validation.length - 8} more issues. Use “Show rows with issues only” to review the affected entries.</p>}</div>}
+      <div className="actions"><button type="button" className="primary" disabled={!rows.length || validation.length > 0 || articleCheck === 'checking' || missingMappings.length > 0 || busy || !lookups} onClick={() => void save()}>{busy ? 'Validating and saving…' : articleCheck === 'checking' ? 'Checking article codes…' : `Validate and save ${rows.length || ''} rows`}</button><button type="button" className="ghost" onClick={onBack}>Cancel</button></div>
     </section>
     {addingBrandForRow !== null && <NewBrandDialog
       onCancel={() => setAddingBrandForRow(null)}
