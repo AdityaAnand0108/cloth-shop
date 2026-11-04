@@ -40,11 +40,11 @@ function requiredFor(kind: Kind) {
     ? ['Article Type', 'Brand', 'Material', 'Colour', 'Size', 'Buying Price', 'Selling Price', 'Quantity', 'Wholesaler', 'Added By']
     : ['Sale Date', 'Article Code', 'Quantity', 'Unit Price', 'Payment Mode', 'Staff']
 }
-function assignMissingBillNumbers(rows: Row[]): Row[] {
+function assignMissingBillNumbers(rows: Row[], regroupGenerated = false): Row[] {
   const billByGroup = new Map<string, string>()
   let next = 1
   return rows.map((row, index) => {
-    if (value(row, 'Bill Number') && !/^IMP-[A-Z0-9]+-\d{3}$/.test(value(row, 'Bill Number'))) return row
+    if (value(row, 'Bill Number') && (!regroupGenerated || !/^IMP-[A-Z0-9]+-\d{3,}$/.test(value(row, 'Bill Number')))) return row
     const customer = value(row, 'Customer Name').trim().toLocaleLowerCase()
     // Rows with the same customer and sale date represent lines on one bill.
     // Without a customer name there is no safe way to infer a shared bill.
@@ -251,7 +251,7 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
       }))
       const nextMapping = Object.fromEntries(columns.map(column => [key(column), sourceIndex(headers, column)]))
       setSourceColumns(headers); setRawRows(raw); setMapping(nextMapping)
-      setRows(kind === 'sales' ? assignMissingBillNumbers(mapRows(raw, nextMapping, columns)) : mapRows(raw, nextMapping, columns))
+      setRows(kind === 'sales' ? assignMissingBillNumbers(mapRows(raw, nextMapping, columns), true) : mapRows(raw, nextMapping, columns))
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not read this workbook') }
   }
 
@@ -259,14 +259,14 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
     const next = { ...mapping, [key(header)]: sourceId }
     setMapping(next)
     const mapped = mapRows(rawRows, next, columns)
-    setRows(kind === 'sales' ? assignMissingBillNumbers(mapped) : mapped)
+    setRows(kind === 'sales' ? assignMissingBillNumbers(mapped, true) : mapped)
   }
 
   function updateRow(index: number, header: string, next: string) {
     setRows(current => {
       const updated = current.map((row, rowIndex) => rowIndex === index ? { ...row, [key(header)]: next } : row)
       return kind === 'sales' && ['Customer Name', 'Sale Date', 'Bill Number'].includes(header)
-        ? assignMissingBillNumbers(updated) : updated
+        ? assignMissingBillNumbers(updated, true) : updated
     })
   }
 
@@ -281,7 +281,35 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
     const shared = rows.find(row => value(row, header))
     if (!shared) return
     const sharedValue = value(shared, header)
-    setRows(current => assignMissingBillNumbers(current.map(row => value(row, header) ? row : { ...row, [key(header)]: sharedValue })))
+    setRows(current => assignMissingBillNumbers(current.map(row => value(row, header) ? row : { ...row, [key(header)]: sharedValue }), ['Customer Name', 'Sale Date'].includes(header)))
+  }
+
+  function addRow() {
+    const blank = Object.fromEntries(columns.map(column => [key(column), ''])) as Row
+    setRows(current => {
+      const updated = [...current, blank]
+      return kind === 'sales' ? assignMissingBillNumbers(updated) : updated
+    })
+    setSearch(''); setIssuesOnly(false)
+    setPage(Math.floor(rows.length / pageSize))
+  }
+
+  function duplicateRow(index: number) {
+    setRows(current => {
+      const updated = [...current]
+      updated.splice(index + 1, 0, { ...current[index] })
+      return kind === 'sales' ? assignMissingBillNumbers(updated) : updated
+    })
+    setSearch(''); setIssuesOnly(false)
+    setPage(Math.floor((index + 1) / pageSize))
+  }
+
+  function deleteRow(index: number) {
+    setRows(current => {
+      const updated = current.filter((_, rowIndex) => rowIndex !== index)
+      return kind === 'sales' ? assignMissingBillNumbers(updated) : updated
+    })
+    setPage(current => Math.min(current, Math.max(0, Math.ceil((rows.length - 1) / pageSize) - 1)))
   }
 
   function editCell(row: Row, index: number, header: string) {
@@ -391,7 +419,7 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
       {kind === 'sales' && <div className="import-mode"><label className="inline-check"><input type="checkbox" checked={historicalOnly} onChange={e => setHistoricalOnly(e.target.checked)} /> Historical sales: record bills without changing current stock</label><p className="muted small">Historical mode does not change today’s inventory. Add Unit Cost when known; missing cost means imported profit is estimated.</p></div>}
       {sourceColumns.length > 0 && <details className="column-mapping" open={missingMappings.length > 0}><summary>Review column mapping · {missingMappings.length ? `${missingMappings.length} required field(s) need a match` : 'automatic matches ready'}</summary><div className="mapping-grid">{columns.map(column => <label className="field" key={column}><span>{column}{required.includes(column) ? ' · required' : ''}</span><select value={mapping[key(column)] ?? ''} onChange={e => changeMapping(column, e.target.value)}><option value="">Not in workbook</option>{sourceColumns.map(source => <option key={source.id} value={source.id}>{source.label}</option>)}</select></label>)}</div><p className="muted small">Automatic matching recognizes common headings such as Qty, Colour/Color, Supplier, Mobile, SKU, Rate and Remarks. Choose a source column manually whenever a heading is ambiguous.</p></details>}
       {missingMappings.length > 0 && <div className="banner err">Map these required fields before saving: {missingMappings.join(', ')}.</div>}
-      {rows.length === 0 ? <p className="muted">Upload an Excel workbook to review its rows here.</p> : <>
+      {rows.length === 0 ? <div><p className="muted">{fileName ? 'There are no rows in this import yet.' : 'Upload an Excel workbook to review its rows here.'}</p>{fileName && <button type="button" className="ghost" onClick={addRow}>＋ Add first row</button>}</div> : <>
         <div className="import-summary">
           <button type="button" className="import-summary-card" onClick={showAllRows}><strong>{rows.length}</strong><span>rows · review all</span></button>
           <button type="button" className={`import-summary-card ${validation.length || missingMappings.length ? 'has-issues' : ''}`} onClick={validation.length ? goToIssues : missingMappings.length ? goToMapping : undefined} disabled={!validation.length && !missingMappings.length}>
@@ -405,15 +433,16 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
         {kind === 'sales' && <div className="import-bill-help"><strong>How bills are grouped</strong><span>Rows with the same bill number are one bill. Missing numbers are generated; matching customer names on the same sale date share a bill. Rows without a customer name stay separate.</span></div>}
         {kind === 'inventory' && <p className="muted small import-help">Blank cells mean the workbook did not include a value for that field. Choose a saved catalogue item, add a new brand when needed, then use “Fill blanks” for shared article details.</p>}
         <div className="import-review-tools">
+          <button type="button" className="ghost" onClick={addRow}>＋ Add row</button>
           <label className="field import-search"><span>Search rows</span><input value={search} onChange={event => { setSearch(event.target.value); setPage(0) }} placeholder="Bill, customer, article code…" /></label>
           <label className="inline-check"><input type="checkbox" checked={issuesOnly} onChange={event => { setIssuesOnly(event.target.checked); setPage(0) }} /> Show rows with issues only</label>
           <span className="muted small">Showing {filteredRows.length ? page * pageSize + 1 : 0}–{Math.min((page + 1) * pageSize, filteredRows.length)} of {filteredRows.length} matching rows</span>
           <div className="import-pagination"><button type="button" className="ghost" disabled={page === 0} onClick={() => setPage(current => current - 1)}>Previous</button><span>Page {page + 1} of {pageCount}</span><button type="button" className="ghost" disabled={page + 1 >= pageCount} onClick={() => setPage(current => current + 1)}>Next</button></div>
         </div>
-        <div className="table-scroll" id="import-review-table"><table className="import-table"><thead><tr>{columns.map(header => <th key={header}><span>{header}</span>{(SHARED_INVENTORY_COLUMNS.has(header) || (kind === 'sales' && ['Sale Date', 'Customer Name', 'Customer Phone', 'Payment Mode', 'Staff'].includes(header))) && rows.some(row => !value(row, header)) && rows.some(row => value(row, header)) && <button type="button" className="link import-fill-blanks" onClick={() => kind === 'sales' ? fillBlankSalesRows(header) : fillBlankRows(header)}>Fill blanks</button>}</th>)}</tr></thead><tbody>{visibleRows.map(({ row, index }) => <tr key={index}>{columns.map(header => {
+        <div className="table-scroll" id="import-review-table"><table className="import-table"><thead><tr>{columns.map(header => <th key={header}><span>{header}</span>{(SHARED_INVENTORY_COLUMNS.has(header) || (kind === 'sales' && ['Sale Date', 'Customer Name', 'Customer Phone', 'Payment Mode', 'Staff'].includes(header))) && rows.some(row => !value(row, header)) && rows.some(row => value(row, header)) && <button type="button" className="link import-fill-blanks" onClick={() => kind === 'sales' ? fillBlankSalesRows(header) : fillBlankRows(header)}>Fill blanks</button>}</th>)}<th className="import-row-actions-heading">Row actions</th></tr></thead><tbody>{visibleRows.map(({ row, index }) => <tr key={index}>{columns.map(header => {
           const cellIssues = issuesForCell(index, header)
           return <td key={header} className={cellIssues.length ? 'import-cell-error' : undefined} title={cellIssues.join(' ')}>{editCell(row, index, header)}</td>
-        })}</tr>)}</tbody></table>{filteredRows.length === 0 && <p className="muted import-empty-results">No rows match these filters.</p>}</div>
+        })}<td className="import-row-actions"><button type="button" className="link" onClick={() => duplicateRow(index)}>Duplicate</button><button type="button" className="link danger-link" onClick={() => deleteRow(index)}>Delete</button></td></tr>)}</tbody></table>{filteredRows.length === 0 && <p className="muted import-empty-results">No rows match these filters.</p>}</div>
       </>}
       {validation.length > 0 && <div className="import-errors" id="import-errors"><strong>Resolve these rows before saving</strong>{validation.slice(0, 8).map(message => <p key={message}>{message}</p>)}{validation.length > 8 && <p>…and {validation.length - 8} more issues. Use “Show rows with issues only” to review the affected entries.</p>}</div>}
       <div className="actions"><button type="button" className="primary" disabled={!rows.length || validation.length > 0 || articleCheck === 'checking' || missingMappings.length > 0 || busy || !lookups} onClick={() => void save()}>{busy ? 'Validating and saving…' : articleCheck === 'checking' ? 'Checking article codes…' : `Validate and save ${rows.length || ''} rows`}</button><button type="button" className="ghost" onClick={onBack}>Cancel</button></div>
