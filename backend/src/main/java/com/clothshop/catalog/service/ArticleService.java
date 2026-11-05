@@ -11,6 +11,7 @@ import com.clothshop.inventory.repository.StockLedgerRepository;
 import com.clothshop.inventory.service.InventoryService;
 import com.clothshop.platform.domain.Wholesaler;
 import com.clothshop.platform.repository.StaffRepository;
+import com.clothshop.platform.service.StaffAccessService;
 import com.clothshop.platform.repository.WholesalerRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -42,13 +43,14 @@ public class ArticleService {
     private final StockLedgerRepository ledger;
     private final WholesalerRepository wholesalers;
     private final StaffRepository staff;
+    private final StaffAccessService staffAccess;
 
     public ArticleService(ArticleTypeRepository articleTypes, BrandRepository brands,
                           MaterialRepository materials, ColourRepository colours,
                           ClothingSizeRepository sizes, ProductRepository products,
                           ProductVariantRepository variants, ArticleCodeGenerator codeGenerator,
                           InventoryService inventory, StockLedgerRepository ledger,
-                          WholesalerRepository wholesalers, StaffRepository staff) {
+                          WholesalerRepository wholesalers, StaffRepository staff, StaffAccessService staffAccess) {
         this.articleTypes = articleTypes;
         this.brands = brands;
         this.materials = materials;
@@ -61,6 +63,7 @@ public class ArticleService {
         this.ledger = ledger;
         this.wholesalers = wholesalers;
         this.staff = staff;
+        this.staffAccess = staffAccess;
     }
 
     // ------------------------------------------------------------------
@@ -102,9 +105,7 @@ public class ArticleService {
         // where it came from or who entered it is worth less than no movement at all.
         Wholesaler wholesaler = wholesalers.findById(request.wholesalerId())
                 .orElseThrow(() -> ApiException.notFound("Wholesaler"));
-        String user = staff.findById(request.staffId())
-                .orElseThrow(() -> ApiException.notFound("Staff member"))
-                .getName();
+        String user = staffAccess.requireActor(request.staffId()).getName();
 
         String code = codeGenerator.generate(sel.type(), sel.brand(), sel.material(), sel.colour(), sel.size());
         Optional<ProductVariant> existing = variants.findByArticleCode(code);

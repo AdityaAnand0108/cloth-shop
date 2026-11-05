@@ -35,11 +35,14 @@ spring:
 server:
   port: ${PORT:8080}
   error:
-    include-message: always
+    include-message: never
 
 app:
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  auth:
+    jwks-url: ${NEON_AUTH_JWKS_URL:}
+    issuer: ${NEON_AUTH_ISSUER:}
   inventory:
     default-location-code: MAIN
   shop:

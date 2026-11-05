@@ -5,6 +5,7 @@
 *.env
 !.env.example
 *.log
+backups/
 
 # java
 backend/target/
