@@ -38,14 +38,7 @@ function columnsFor(kind: Kind) { return kind === 'inventory' ? INVENTORY_COLUMN
 function requiredFor(kind: Kind) {
   return kind === 'inventory'
     ? ['Article Type', 'Brand', 'Material', 'Colour', 'Size', 'Buying Price', 'Selling Price', 'Quantity', 'Wholesaler', 'Added By']
-    : ['Sale Date', 'Article Code', 'Quantity', 'Unit Price']
-}
-function applySalesDefaults(rows: Row[]): Row[] {
-  return rows.map(row => ({
-    ...row,
-    paymentmode: value(row, 'Payment Mode') || 'UPI',
-    staff: value(row, 'Staff') || 'Aditya',
-  }))
+    : ['Sale Date', 'Article Code', 'Quantity', 'Unit Price', 'Payment Mode', 'Staff']
 }
 function assignMissingBillNumbers(rows: Row[], regroupGenerated = false): Row[] {
   const billByGroup = new Map<string, string>()
@@ -258,8 +251,7 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
       }))
       const nextMapping = Object.fromEntries(columns.map(column => [key(column), sourceIndex(headers, column)]))
       setSourceColumns(headers); setRawRows(raw); setMapping(nextMapping)
-      const mapped = mapRows(raw, nextMapping, columns)
-      setRows(kind === 'sales' ? assignMissingBillNumbers(applySalesDefaults(mapped), true) : mapped)
+      setRows(kind === 'sales' ? assignMissingBillNumbers(mapRows(raw, nextMapping, columns), true) : mapRows(raw, nextMapping, columns))
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not read this workbook') }
   }
 
@@ -267,16 +259,14 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
     const next = { ...mapping, [key(header)]: sourceId }
     setMapping(next)
     const mapped = mapRows(rawRows, next, columns)
-    setRows(kind === 'sales' ? assignMissingBillNumbers(applySalesDefaults(mapped), true) : mapped)
+    setRows(kind === 'sales' ? assignMissingBillNumbers(mapped, true) : mapped)
   }
 
   function updateRow(index: number, header: string, next: string) {
     setRows(current => {
       const updated = current.map((row, rowIndex) => rowIndex === index ? { ...row, [key(header)]: next } : row)
-      if (kind !== 'sales') return updated
-      const withDefaults = applySalesDefaults(updated)
-      return ['Customer Name', 'Sale Date', 'Bill Number'].includes(header)
-        ? assignMissingBillNumbers(withDefaults, true) : withDefaults
+      return kind === 'sales' && ['Customer Name', 'Sale Date', 'Bill Number'].includes(header)
+        ? assignMissingBillNumbers(updated, true) : updated
     })
   }
 
@@ -297,8 +287,7 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
   function addRow() {
     const blank = Object.fromEntries(columns.map(column => [key(column), ''])) as Row
     setRows(current => {
-      const newRow = kind === 'sales' ? applySalesDefaults([blank])[0] : blank
-      const updated = [...current, newRow]
+      const updated = [...current, blank]
       return kind === 'sales' ? assignMissingBillNumbers(updated) : updated
     })
     setSearch(''); setIssuesOnly(false)
@@ -373,8 +362,8 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
     const checkouts: CheckoutRequest[] = []
     for (const [billNo, billRows] of bills) {
       const first = billRows[0]
-      const staff = lookup('Staff', value(first, 'Staff') || 'Aditya')
-      const payment = (value(first, 'Payment Mode') || 'UPI').toUpperCase() as PaymentMode
+      const staff = lookup('Staff', value(first, 'Staff'))
+      const payment = value(first, 'Payment Mode').toUpperCase() as PaymentMode
       if (!staff || !['CASH', 'UPI', 'CARD'].includes(payment)) throw new Error(`Check staff and payment mode for bill ${billNo}.`)
       const lines: CheckoutLine[] = []
       for (const row of billRows) {
@@ -417,7 +406,7 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
     XLSX.utils.book_append_sheet(workbook, sheet, 'Import')
     const guide = kind === 'inventory'
       ? [['Inventory import guide'], ['One row per colour and size variant. Use names or saved short codes for catalogue fields.'], ['Quantity must be a whole number greater than zero.'], ['Invoice / Reference and Reorder Level are optional.']]
-      : [['Sales import guide'], ['Use one row per article line. Bill Number is optional; rows with the same customer name and sale date share a generated bill number when it is blank.'], ['Blank Payment Mode defaults to UPI; blank Staff defaults to Aditya.'], ['Repeat date, staff, payment mode and customer details on every line of a bill.'], ['Historical import leaves current stock unchanged.'], ['Unit Cost is optional; imported profit is marked estimated when it is blank.']]
+      : [['Sales import guide'], ['Use one row per article line. Bill Number is optional; rows with the same customer name and sale date share a generated bill number when it is blank.'], ['Repeat date, staff, payment mode and customer details on every line of a bill.'], ['Historical import leaves current stock unchanged.'], ['Unit Cost is optional; imported profit is marked estimated when it is blank.']]
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(guide), 'Read me')
     XLSX.writeFile(workbook, `${kind}-import-template.xlsx`)
   }
@@ -427,7 +416,7 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
     {error && <div className="banner err">{error}</div>}{result && <div className="banner ok">{result}</div>}
     <section className="card import-card">
       <div className="import-toolbar"><label className="primary file-button">Choose Excel file<input type="file" accept=".xlsx,.xls,.csv" onChange={e => e.target.files?.[0] && void readFile(e.target.files[0])} /></label><span className="muted small">{fileName || 'No file selected'}</span><button type="button" className="link" onClick={downloadTemplate}>Download Excel template</button></div>
-      {kind === 'sales' && <div className="import-mode"><label className="inline-check"><input type="checkbox" checked={historicalOnly} onChange={e => setHistoricalOnly(e.target.checked)} /> Historical sales: record bills without changing current stock</label><p className="muted small">Historical mode does not change today’s inventory. Add Unit Cost when known; missing cost means imported profit is estimated. Blank payment mode defaults to UPI, and blank staff defaults to Aditya.</p></div>}
+      {kind === 'sales' && <div className="import-mode"><label className="inline-check"><input type="checkbox" checked={historicalOnly} onChange={e => setHistoricalOnly(e.target.checked)} /> Historical sales: record bills without changing current stock</label><p className="muted small">Historical mode does not change today’s inventory. Add Unit Cost when known; missing cost means imported profit is estimated.</p></div>}
       {sourceColumns.length > 0 && <details className="column-mapping" open={missingMappings.length > 0}><summary>Review column mapping · {missingMappings.length ? `${missingMappings.length} required field(s) need a match` : 'automatic matches ready'}</summary><div className="mapping-grid">{columns.map(column => <label className="field" key={column}><span>{column}{required.includes(column) ? ' · required' : ''}</span><select value={mapping[key(column)] ?? ''} onChange={e => changeMapping(column, e.target.value)}><option value="">Not in workbook</option>{sourceColumns.map(source => <option key={source.id} value={source.id}>{source.label}</option>)}</select></label>)}</div><p className="muted small">Automatic matching recognizes common headings such as Qty, Colour/Color, Supplier, Mobile, SKU, Rate and Remarks. Choose a source column manually whenever a heading is ambiguous.</p></details>}
       {missingMappings.length > 0 && <div className="banner err">Map these required fields before saving: {missingMappings.join(', ')}.</div>}
       {rows.length === 0 ? <div><p className="muted">{fileName ? 'There are no rows in this import yet.' : 'Upload an Excel workbook to review its rows here.'}</p>{fileName && <button type="button" className="ghost" onClick={addRow}>＋ Add first row</button>}</div> : <>

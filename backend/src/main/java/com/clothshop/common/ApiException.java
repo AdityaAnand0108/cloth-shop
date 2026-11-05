@@ -30,10 +30,6 @@ public class ApiException extends RuntimeException {
         return new ApiException(HttpStatus.BAD_REQUEST, code, message);
     }
 
-    public static ApiException forbidden(String code, String message) {
-        return new ApiException(HttpStatus.FORBIDDEN, code, message);
-    }
-
     public static ApiException conflict(String code, String message, Map<String, Object> details) {
         return new ApiException(HttpStatus.CONFLICT, code, message, details);
     }

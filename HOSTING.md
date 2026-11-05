@@ -43,9 +43,6 @@ zero cost; it does not promise uninterrupted service or backups.
    the site (for the first API deploy, a temporary `http://localhost:5173` value is OK).
 5. Wait for the service to deploy and copy its HTTPS address, such as
    `https://bflex-api.onrender.com`.
-5. Set `NEON_AUTH_JWKS_URL` to the JWKS URL for the same Neon Auth branch and
-   `NEON_AUTH_ISSUER` to the exact `iss` value in a token from that branch. Enable
-   Neon Auth JWT/JWKS support for the project before deploying.
 
 The `/health` endpoint is used by Render to check that the service has started. Flyway
 applies any pending database migrations at startup.
@@ -70,37 +67,21 @@ In Render → the `bflex-api` service → Environment, change
 `APP_CORS_ALLOWED_ORIGINS` to the exact Cloudflare Pages origin, for example
 `https://bflex-cloth-shop.pages.dev` (no trailing slash). Save and redeploy.
 
-The website sends a Neon Auth bearer token on API calls. Active Neon Auth users must
-be linked to a `staff` row before access is granted. `APP_CORS_ALLOWED_ORIGINS` only
-controls browser cross-origin access; API authentication and staff roles are enforced
-independently by Spring Security.
-
-### Link the first shop accounts
-
-After migration V12 has run, obtain each Neon Auth user's subject (`sub`) from its
-verified session/JWT and link it to the intended staff row. Run this as the database
-owner in Neon SQL Editor (replace values with the actual values):
-
-```sql
-UPDATE staff SET auth_subject = 'NEON_AUTH_SUBJECT', role = 'OWNER' WHERE name = 'Aditya';
-UPDATE staff SET auth_subject = 'CASHIER_SUBJECT', role = 'CASHIER' WHERE name = 'Ashwini';
-```
-
-Link every active staff login. Unlinked accounts have no API access. The first linked
-owner can assign roles by updating this table; there is intentionally no public
-bootstrap or role-management endpoint. Brand/wholesaler creation, sales imports and
-reorder-level changes are owner-only.
+The website uses Neon Auth for its sign-in page. The Spring API endpoints are public
+and do not require a bearer token. Anyone who can reach the API can read or change
+shop data. `APP_CORS_ALLOWED_ORIGINS` controls browser cross-origin access; it does not
+authenticate API callers.
 
 ## Local development
 
-The API requires a signed-in, linked staff account in local development too.
-Configure `NEON_AUTH_JWKS_URL` and `NEON_AUTH_ISSUER` in `backend/.env`, and
-`VITE_NEON_AUTH_URL` in `frontend/.env.local`; the Vite proxy still handles `/api`.
+The API is public in local development too. `frontend/vite.config.ts` continues to
+proxy `/api` to the local backend; leave `VITE_API_BASE_URL` unset when running locally.
 
 ## Before using real shop records
 
-- Confirm production has both Neon JDBC URLs, database credentials, the exact Pages
-  origin, and matching Neon Auth JWKS/issuer values. Configure `VITE_NEON_AUTH_URL`.
+- Confirm the production Render environment has both Neon JDBC URLs, database
+  credentials, and the exact Pages origin. Configure `VITE_NEON_AUTH_URL` in Cloudflare
+  Pages for the sign-in page.
 - Verify the HTTPS site can sign in, browse inventory, and complete a small test sale.
 - Keep an independent backup/export of the database. The free hosting setup does not
   provide a complete business continuity plan.

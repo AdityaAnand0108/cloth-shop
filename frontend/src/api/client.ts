@@ -5,7 +5,6 @@ import type {
   CustomerSummary, ReturnRequest, ReturnResult,
   ReturnableBill,
 } from './types'
-import { getApiToken } from '../auth'
 
 const BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 
@@ -16,12 +15,10 @@ export class HttpError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = await getApiToken()
   const res = await fetch(`${BASE}${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init?.headers ?? {}),
     },
   })
@@ -40,7 +37,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  me: () => request<{ staffId: number; name: string; role: 'OWNER' | 'CASHIER' }>('/me'),
   lookups: () => request<Lookups>('/lookups'),
 
   createBrand: (name: string, code?: string) =>

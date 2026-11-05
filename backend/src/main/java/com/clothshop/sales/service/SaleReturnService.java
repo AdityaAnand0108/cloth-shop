@@ -9,7 +9,6 @@ import com.clothshop.inventory.domain.MovementType;
 import com.clothshop.inventory.service.InventoryService;
 import com.clothshop.platform.domain.Staff;
 import com.clothshop.platform.repository.StaffRepository;
-import com.clothshop.platform.service.StaffAccessService;
 import com.clothshop.sales.domain.*;
 import com.clothshop.sales.dto.SaleDtos.*;
 import com.clothshop.sales.repository.SaleLineRepository;
@@ -37,12 +36,11 @@ public class SaleReturnService {
     private final ProductVariantRepository variants;
     private final InventoryService inventory;
     private final SaleService checkout;
-    private final StaffAccessService staffAccess;
 
     public SaleReturnService(SaleRepository sales, SaleLineRepository saleLines,
                              SaleReturnRepository returns, SaleReturnLineRepository returnLines,
                              StaffRepository staff, ProductVariantRepository variants,
-                             InventoryService inventory, SaleService checkout, StaffAccessService staffAccess) {
+                             InventoryService inventory, SaleService checkout) {
         this.sales = sales;
         this.saleLines = saleLines;
         this.returns = returns;
@@ -51,7 +49,6 @@ public class SaleReturnService {
         this.variants = variants;
         this.inventory = inventory;
         this.checkout = checkout;
-        this.staffAccess = staffAccess;
     }
 
     @Transactional
@@ -68,7 +65,7 @@ public class SaleReturnService {
         if (type.equals("EXCHANGE") && (request.exchangeLines() == null || request.exchangeLines().isEmpty())) {
             throw ApiException.badRequest("EXCHANGE_ITEMS_REQUIRED", "Add at least one replacement item for an exchange.");
         }
-        Staff operator = staffAccess.requireActor(request.staffId());
+        Staff operator = staff.findById(request.staffId()).orElseThrow(() -> ApiException.notFound("Staff member"));
         String returnNo = "R-" + String.format("%06d", returns.nextReturnSequence());
         SaleReturn doc = new SaleReturn();
         doc.setReturnNo(returnNo);

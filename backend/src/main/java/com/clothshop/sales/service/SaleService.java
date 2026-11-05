@@ -6,7 +6,6 @@ import com.clothshop.common.ApiException;
 import com.clothshop.inventory.domain.Location;
 import com.clothshop.inventory.service.InventoryService;
 import com.clothshop.platform.repository.StaffRepository;
-import com.clothshop.platform.service.StaffAccessService;
 import com.clothshop.platform.domain.Customer;
 import com.clothshop.platform.service.CustomerService;
 import com.clothshop.sales.domain.Sale;
@@ -46,7 +45,6 @@ public class SaleService {
     private final ProductVariantRepository variants;
     private final SaleRepository sales;
     private final StaffRepository staff;
-    private final StaffAccessService staffAccess;
     private final CustomerService customers;
     private final InventoryService inventory;
     private final BillNumberGenerator billNumbers;
@@ -55,11 +53,10 @@ public class SaleService {
     public SaleService(ProductVariantRepository variants, SaleRepository sales,
                        StaffRepository staff, InventoryService inventory,
                        BillNumberGenerator billNumbers, CustomerService customers,
-                       @Value("${app.shop.zone}") String shopZone, StaffAccessService staffAccess) {
+                       @Value("${app.shop.zone}") String shopZone) {
         this.variants = variants;
         this.sales = sales;
         this.staff = staff;
-        this.staffAccess = staffAccess;
         this.customers = customers;
         this.inventory = inventory;
         this.billNumbers = billNumbers;
@@ -122,7 +119,9 @@ public class SaleService {
      */
     @Transactional
     public Bill checkout(CheckoutRequest request) {
-        String user = staffAccess.requireActor(request.staffId()).getName();
+        String user = staff.findById(request.staffId())
+                .orElseThrow(() -> ApiException.notFound("Staff member"))
+                .getName();
 
         Location location = inventory.defaultLocation();
 

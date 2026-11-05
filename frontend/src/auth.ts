@@ -8,12 +8,6 @@ if (!authUrl) {
 
 const authAdapter = BetterAuthReactAdapter()(authUrl)
 
+// The React adapter handles the sign-in UI. The Spring API is public, so API
+// requests do not need a Neon Auth token.
 export const authClient = authAdapter.getBetterAuthInstance()
-
-export async function getApiToken(): Promise<string | null> {
-  try {
-    return await authAdapter.getJWTToken(false)
-  } catch {
-    return null
-  }
-}
