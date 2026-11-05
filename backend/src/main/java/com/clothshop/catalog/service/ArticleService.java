@@ -321,6 +321,35 @@ public class ArticleService {
                 stock.getOrDefault(v.getId(), BigDecimal.ZERO)));
     }
 
+    @Transactional(readOnly = true)
+    public ArticleSearchSummary summarize(ArticleFilter filter) {
+        List<ArticleSummaryRow> rows = variants.summarizeSearch(
+                filter.q(), filter.articleTypeId(), filter.brandId(), filter.materialId(),
+                filter.colourId(), filter.sizeId());
+        Map<Long, BigDecimal> stock = new java.util.HashMap<>();
+        List<Long> ids = rows.stream().map(ArticleSummaryRow::variantId).toList();
+        for (int start = 0; start < ids.size(); start += 500) {
+            inventory.onHandByVariant(ids.subList(start, Math.min(start + 500, ids.size())))
+                    .forEach((id, qty) -> stock.merge(id, qty, BigDecimal::add));
+        }
+        long inStock = 0;
+        BigDecimal units = BigDecimal.ZERO;
+        for (ArticleSummaryRow row : rows) {
+            BigDecimal qty = stock.getOrDefault(row.variantId(), BigDecimal.ZERO);
+            if (qty.signum() > 0) inStock++;
+            units = units.add(qty);
+        }
+        Map<String, ArticleColourSummary> coloursById = new java.util.LinkedHashMap<>();
+        java.util.Set<String> sizes = new java.util.LinkedHashSet<>();
+        for (ArticleSummaryRow row : rows) {
+            sizes.add(row.size());
+            coloursById.putIfAbsent(String.valueOf(row.colourId()),
+                    new ArticleColourSummary(row.colourId(), row.colour(), row.colourHex()));
+        }
+        return new ArticleSearchSummary(rows.size(), inStock, units,
+                List.copyOf(sizes), List.copyOf(coloursById.values()));
+    }
+
     // ------------------------------------------------------------------
     // Detail
     // ------------------------------------------------------------------

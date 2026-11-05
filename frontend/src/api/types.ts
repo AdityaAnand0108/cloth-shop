@@ -228,6 +228,14 @@ export type Page<T> = {
   totalElements: number
 }
 
+export type ArticleSearchSummary = {
+  matchingVariants: number
+  inStockVariants: number
+  unitsOnHand: number
+  sizes: string[]
+  colours: Array<{ id: number; name: string; hex: string | null }>
+}
+
 export type ApiError = {
   code: string
   message: string

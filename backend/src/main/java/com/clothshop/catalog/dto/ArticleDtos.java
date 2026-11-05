@@ -226,6 +226,18 @@ public final class ArticleDtos {
     ) {
     }
 
+    public record ArticleSummaryRow(Long variantId, String size, Long colourId, String colour, String colourHex) {}
+
+    public record ArticleColourSummary(Long id, String name, String hex) {}
+
+    public record ArticleSearchSummary(
+            long matchingVariants,
+            long inStockVariants,
+            BigDecimal unitsOnHand,
+            List<String> sizes,
+            List<ArticleColourSummary> colours
+    ) {}
+
     // ---------- detail ----------
 
     /**

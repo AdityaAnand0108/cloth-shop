@@ -1,6 +1,7 @@
 package com.clothshop.catalog.repository;
 
 import com.clothshop.catalog.domain.ProductVariant;
+import com.clothshop.catalog.dto.ArticleDtos.ArticleSummaryRow;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -97,4 +98,25 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
                                 @Param("colourId") Long colourId,
                                 @Param("sizeId") Long sizeId,
                                 Pageable pageable);
+
+    @Query("""
+            select new com.clothshop.catalog.dto.ArticleDtos$ArticleSummaryRow(
+              v.id, v.size.name, v.colour.id, v.colour.name, v.colour.hex)
+            from ProductVariant v
+              join v.product p
+            where (upper(v.articleCode) like upper(concat(:q, '%'))
+                or upper(p.displayName) like upper(concat('%', :q, '%')))
+              and (:articleTypeId is null or p.articleType.id = :articleTypeId)
+              and (:brandId is null or p.brand.id = :brandId)
+              and (:materialId is null or p.material.id = :materialId)
+              and (:colourId is null or v.colour.id = :colourId)
+              and (:sizeId is null or v.size.id = :sizeId)
+            order by v.size.sortOrder, v.colour.sortOrder
+            """)
+    List<ArticleSummaryRow> summarizeSearch(@Param("q") String q,
+                                            @Param("articleTypeId") Long articleTypeId,
+                                            @Param("brandId") Long brandId,
+                                            @Param("materialId") Long materialId,
+                                            @Param("colourId") Long colourId,
+                                            @Param("sizeId") Long sizeId);
 }

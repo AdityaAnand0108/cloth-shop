@@ -1,6 +1,6 @@
 import type {
   AddArticleBatchRequest, AddArticleBatchResponse, AddArticleRequest, AddArticleResponse, ApiError, ArticleDetail, ArticleFilters,
-  ArticleListItem, Bill, CartArticle, CheckoutRequest, DaySummary, DashboardReport, LookupItem,
+  ArticleListItem, ArticleSearchSummary, Bill, CartArticle, CheckoutRequest, DaySummary, DashboardReport, LookupItem,
   Lookups, Page, PreviewResponse, WholesalerItem, InventoryReceiptRequest, InventoryReceiptResponse,
   CustomerSummary, ReturnRequest, ReturnResult,
   ReturnableBill,
@@ -104,6 +104,12 @@ export const api = {
       if (value) params.set(key, value)
     }
     return request<Page<ArticleListItem>>(`/articles?${params}`, { signal })
+  },
+
+  articleSearchSummary: (filters: Partial<ArticleFilters> = {}, signal?: AbortSignal) => {
+    const params = new URLSearchParams()
+    for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value)
+    return request<ArticleSearchSummary>(`/articles/summary?${params}`, { signal })
   },
 
   /**

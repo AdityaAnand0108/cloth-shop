@@ -7,6 +7,7 @@ import com.clothshop.catalog.dto.ArticleDtos.AddArticleBatchResponse;
 import com.clothshop.catalog.dto.ArticleDtos.ArticleDetail;
 import com.clothshop.catalog.dto.ArticleDtos.ArticleFilter;
 import com.clothshop.catalog.dto.ArticleDtos.ArticleListItem;
+import com.clothshop.catalog.dto.ArticleDtos.ArticleSearchSummary;
 import com.clothshop.catalog.dto.ArticleDtos.PreviewRequest;
 import com.clothshop.catalog.dto.ArticleDtos.PreviewResponse;
 import com.clothshop.catalog.dto.ArticleDtos.InventoryReceiptRequest;
@@ -108,5 +109,15 @@ public class ArticleController {
         ArticleFilter filter = new ArticleFilter(q, articleTypeId, brandId, materialId, colourId, sizeId);
         return articles.list(filter, PageRequest.of(page, Math.min(size, 200),
                 Sort.by(Sort.Direction.DESC, "id")));
+    }
+
+    @GetMapping("/summary")
+    public ArticleSearchSummary summary(@RequestParam(required = false) String q,
+                                        @RequestParam(required = false) Long articleTypeId,
+                                        @RequestParam(required = false) Long brandId,
+                                        @RequestParam(required = false) Long materialId,
+                                        @RequestParam(required = false) Long colourId,
+                                        @RequestParam(required = false) Long sizeId) {
+        return articles.summarize(new ArticleFilter(q, articleTypeId, brandId, materialId, colourId, sizeId));
     }
 }
