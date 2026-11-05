@@ -11,6 +11,7 @@ import com.clothshop.inventory.repository.StockLedgerRepository;
 import com.clothshop.inventory.service.InventoryService;
 import com.clothshop.platform.domain.Wholesaler;
 import com.clothshop.platform.repository.StaffRepository;
+import com.clothshop.platform.service.StaffAccessService;
 import com.clothshop.platform.repository.WholesalerRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -23,6 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,13 +43,14 @@ public class ArticleService {
     private final StockLedgerRepository ledger;
     private final WholesalerRepository wholesalers;
     private final StaffRepository staff;
+    private final StaffAccessService staffAccess;
 
     public ArticleService(ArticleTypeRepository articleTypes, BrandRepository brands,
                           MaterialRepository materials, ColourRepository colours,
                           ClothingSizeRepository sizes, ProductRepository products,
                           ProductVariantRepository variants, ArticleCodeGenerator codeGenerator,
                           InventoryService inventory, StockLedgerRepository ledger,
-                          WholesalerRepository wholesalers, StaffRepository staff) {
+                          WholesalerRepository wholesalers, StaffRepository staff, StaffAccessService staffAccess) {
         this.articleTypes = articleTypes;
         this.brands = brands;
         this.materials = materials;
@@ -59,6 +63,7 @@ public class ArticleService {
         this.ledger = ledger;
         this.wholesalers = wholesalers;
         this.staff = staff;
+        this.staffAccess = staffAccess;
     }
 
     // ------------------------------------------------------------------
@@ -100,9 +105,7 @@ public class ArticleService {
         // where it came from or who entered it is worth less than no movement at all.
         Wholesaler wholesaler = wholesalers.findById(request.wholesalerId())
                 .orElseThrow(() -> ApiException.notFound("Wholesaler"));
-        String user = staff.findById(request.staffId())
-                .orElseThrow(() -> ApiException.notFound("Staff member"))
-                .getName();
+        String user = staffAccess.requireActor(request.staffId()).getName();
 
         String code = codeGenerator.generate(sel.type(), sel.brand(), sel.material(), sel.colour(), sel.size());
         Optional<ProductVariant> existing = variants.findByArticleCode(code);
@@ -122,6 +125,100 @@ public class ArticleService {
         return existing.isPresent()
                 ? addStock(existing.get(), request, location, wholesaler, user)
                 : createArticle(sel, code, request, location, wholesaler, user);
+    }
+
+    /** Add several size variants from one purchase, atomically. */
+    @Transactional
+    public AddArticleBatchResponse addBatch(AddArticleBatchRequest request) {
+        Set<String> seenVariants = new HashSet<>();
+        List<Selection> selections = request.sizes().stream().map(line -> {
+            String variantKey = line.colourId() + ":" + line.sizeId();
+            if (!seenVariants.add(variantKey)) {
+                throw ApiException.badRequest("DUPLICATE_VARIANT", "Each colour and size combination can be entered only once");
+            }
+            Selection selection = resolve(request.articleTypeId(), request.brandId(),
+                    request.materialId(), line.colourId(), line.sizeId());
+            requireSizeMatchesArticle(selection);
+            return selection;
+        }).toList();
+
+        // Check every selected size before writing any stock, so a stale duplicate preview
+        // cannot leave only part of a size run added.
+        for (int i = 0; i < request.sizes().size(); i++) {
+            AddArticleBatchLine line = request.sizes().get(i);
+            Selection selection = selections.get(i);
+            String code = codeGenerator.generate(selection.type(), selection.brand(),
+                    selection.material(), selection.colour(), selection.size());
+            Optional<ProductVariant> existing = variants.findByArticleCode(code);
+            if (existing.isPresent() && line.mode() == AddMode.CREATE) {
+                throw ApiException.conflict("ARTICLE_EXISTS",
+                        "Article " + code + " already exists. Review the selected sizes and try again.",
+                        Map.of("articleCode", code, "existing", describe(existing.get())));
+            }
+            if (existing.isEmpty() && line.mode() == AddMode.ADD_STOCK) {
+                throw ApiException.conflict("ARTICLE_MISSING",
+                        "Article " + code + " no longer exists. Review the selected sizes and try again.",
+                        Map.of("articleCode", code));
+            }
+        }
+
+        List<AddArticleResponse> added = new java.util.ArrayList<>();
+        for (AddArticleBatchLine line : request.sizes()) {
+            added.add(add(new AddArticleRequest(
+                    request.articleTypeId(), request.brandId(), request.materialId(), line.colourId(),
+                    line.sizeId(), request.buyingPrice(), request.sellingPrice(), line.quantity(),
+                    request.wholesalerId(), request.staffId(), line.mode(),
+                    line.updateSellingPrice(), request.note(), request.purchaseReference(), request.reorderLevel())));
+        }
+        return new AddArticleBatchResponse(added);
+    }
+
+    /** Receive a mixed supplier delivery as one atomic inventory transaction. */
+    @Transactional
+    public InventoryReceiptResponse receive(InventoryReceiptRequest request) {
+        String reference = request.reference() == null || request.reference().isBlank()
+                ? null : request.reference().trim();
+        List<AddArticleResponse> added = new java.util.ArrayList<>();
+        Set<String> seenCodes = new HashSet<>();
+        for (InventoryReceiptLine line : request.items()) {
+            Selection sel;
+            if (line.variantId() != null) {
+                ProductVariant existing = variants.findDetailById(line.variantId())
+                        .orElseThrow(() -> ApiException.notFound("Article " + line.variantId()));
+                sel = new Selection(existing.getProduct().getArticleType(), existing.getProduct().getBrand(),
+                        existing.getProduct().getMaterial(), existing.getColour(), existing.getSize());
+            } else {
+                if (line.articleTypeId() == null || line.brandId() == null || line.materialId() == null
+                        || line.colourId() == null || line.sizeId() == null) {
+                    throw ApiException.badRequest("MISSING_ARTICLE", "Choose an existing article or complete all article attributes.");
+                }
+                sel = resolve(line.articleTypeId(), line.brandId(), line.materialId(), line.colourId(), line.sizeId());
+                requireSizeMatchesArticle(sel);
+            }
+            String code = codeGenerator.generate(sel.type(), sel.brand(), sel.material(), sel.colour(), sel.size());
+            if (!seenCodes.add(code)) {
+                throw ApiException.badRequest("DUPLICATE_VARIANT", "The receipt contains the same article more than once: " + code);
+            }
+            AddMode mode = variants.findByArticleCode(code).isPresent() ? AddMode.ADD_STOCK : AddMode.CREATE;
+            String purchaseReference = line.purchaseReference() == null || line.purchaseReference().isBlank()
+                    ? reference : line.purchaseReference().trim();
+            added.add(add(new AddArticleRequest(sel.type().getId(), sel.brand().getId(), sel.material().getId(),
+                    sel.colour().getId(), sel.size().getId(), line.buyingPrice(), line.sellingPrice(),
+                    line.quantity(), line.wholesalerId() == null ? request.wholesalerId() : line.wholesalerId(),
+                    line.staffId() == null ? request.staffId() : line.staffId(), mode,
+                    line.updateSellingPrice(), line.note() == null ? request.note() : line.note(),
+                    purchaseReference, line.reorderLevel())));
+        }
+        return new InventoryReceiptResponse(reference, added);
+    }
+
+    @Transactional
+    public BigDecimal setReorderLevel(Long variantId, BigDecimal reorderLevel) {
+        ProductVariant variant = variants.findById(variantId)
+                .orElseThrow(() -> ApiException.notFound("Article"));
+        variant.setReorderLevel(reorderLevel);
+        variants.save(variant);
+        return variant.getReorderLevel();
     }
 
     private AddArticleResponse createArticle(Selection sel, String code, AddArticleRequest request,
@@ -149,11 +246,13 @@ public class ArticleService {
         variant.setLastBuyingPrice(request.buyingPrice());
         variant.setAvgCost(request.buyingPrice());   // first lot sets the average
         variant.setSellingPrice(request.sellingPrice());
+        if (request.reorderLevel() != null) variant.setReorderLevel(request.reorderLevel());
         variants.save(variant);
 
         BigDecimal balance = inventory.post(variant.getId(), location.getId(),
                 MovementType.OPENING_STOCK, request.quantity(), request.buyingPrice(),
-                wholesaler.getId(), "ARTICLE", code, request.note(), user);
+                wholesaler.getId(), request.purchaseReference() == null ? "ARTICLE" : "PURCHASE",
+                request.purchaseReference() == null ? code : request.purchaseReference(), request.note(), user);
 
         return new AddArticleResponse("CREATED", variant.getId(), code, product.getDisplayName(),
                 balance, variant.getAvgCost(), variant.getLastBuyingPrice(),
@@ -171,6 +270,7 @@ public class ArticleService {
         variant.setAvgCost(Costing.weightedAverage(
                 onHandBefore, variant.getAvgCost(), request.quantity(), request.buyingPrice()));
         variant.setLastBuyingPrice(request.buyingPrice());
+        if (request.reorderLevel() != null) variant.setReorderLevel(request.reorderLevel());
 
         // The shelf price IS a choice, and the only one here.
         boolean sellingPriceChanged = false;
@@ -184,7 +284,9 @@ public class ArticleService {
         // unit_cost records what THIS lot actually cost, so the averaging stays reversible.
         BigDecimal balance = inventory.post(variant.getId(), location.getId(),
                 MovementType.PURCHASE_IN, request.quantity(), request.buyingPrice(),
-                wholesaler.getId(), "ARTICLE", variant.getArticleCode(), request.note(), user);
+                wholesaler.getId(), request.purchaseReference() == null ? "ARTICLE" : "PURCHASE",
+                request.purchaseReference() == null ? variant.getArticleCode() : request.purchaseReference(),
+                request.note(), user);
 
         return new AddArticleResponse("STOCK_ADDED", variant.getId(), variant.getArticleCode(),
                 variant.getProduct().getDisplayName(), balance,
@@ -218,6 +320,35 @@ public class ArticleService {
                 v.getLastBuyingPrice(),
                 v.getSellingPrice(),
                 stock.getOrDefault(v.getId(), BigDecimal.ZERO)));
+    }
+
+    @Transactional(readOnly = true)
+    public ArticleSearchSummary summarize(ArticleFilter filter) {
+        List<ArticleSummaryRow> rows = variants.summarizeSearch(
+                filter.q(), filter.articleTypeId(), filter.brandId(), filter.materialId(),
+                filter.colourId(), filter.sizeId());
+        Map<Long, BigDecimal> stock = new java.util.HashMap<>();
+        List<Long> ids = rows.stream().map(ArticleSummaryRow::variantId).toList();
+        for (int start = 0; start < ids.size(); start += 500) {
+            inventory.onHandByVariant(ids.subList(start, Math.min(start + 500, ids.size())))
+                    .forEach((id, qty) -> stock.merge(id, qty, BigDecimal::add));
+        }
+        long inStock = 0;
+        BigDecimal units = BigDecimal.ZERO;
+        for (ArticleSummaryRow row : rows) {
+            BigDecimal qty = stock.getOrDefault(row.variantId(), BigDecimal.ZERO);
+            if (qty.signum() > 0) inStock++;
+            units = units.add(qty);
+        }
+        Map<String, ArticleColourSummary> coloursById = new java.util.LinkedHashMap<>();
+        java.util.Set<String> sizes = new java.util.LinkedHashSet<>();
+        for (ArticleSummaryRow row : rows) {
+            sizes.add(row.size());
+            coloursById.putIfAbsent(String.valueOf(row.colourId()),
+                    new ArticleColourSummary(row.colourId(), row.colour(), row.colourHex()));
+        }
+        return new ArticleSearchSummary(rows.size(), inStock, units,
+                List.copyOf(sizes), List.copyOf(coloursById.values()));
     }
 
     // ------------------------------------------------------------------
@@ -283,6 +414,13 @@ public class ArticleService {
                 lastSaleAt,
                 toLedgerEntries(history),
                 siblingsOf(v, location));
+    }
+
+    @Transactional(readOnly = true)
+    public ArticleDetail detailByCode(String articleCode) {
+        ProductVariant variant = variants.findByArticleCode(articleCode == null ? "" : articleCode.trim())
+                .orElseThrow(() -> ApiException.notFound("Article code " + articleCode));
+        return detail(variant.getId());
     }
 
     /** Supplier names are resolved in one lookup for the whole history, not one per row. */

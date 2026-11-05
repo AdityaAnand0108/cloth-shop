@@ -1,10 +1,13 @@
 import type {
-  AddArticleRequest, AddArticleResponse, ApiError, ArticleDetail, ArticleFilters,
-  ArticleListItem, Bill, CartArticle, CheckoutRequest, DaySummary, LookupItem,
-  Lookups, Page, PreviewResponse, WholesalerItem,
+  AddArticleBatchRequest, AddArticleBatchResponse, AddArticleRequest, AddArticleResponse, ApiError, ArticleDetail, ArticleFilters,
+  ArticleListItem, ArticleSearchSummary, Bill, CartArticle, CheckoutRequest, DaySummary, DashboardReport, LookupItem,
+  Lookups, Page, PreviewResponse, WholesalerItem, InventoryReceiptRequest, InventoryReceiptResponse,
+  CustomerSummary, ReturnRequest, ReturnResult,
+  ReturnableBill,
 } from './types'
+import { getApiToken } from '../auth'
 
-const BASE = '/api/v1'
+const BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 
 export class HttpError extends Error {
   constructor(public status: number, public body: ApiError) {
@@ -13,9 +16,14 @@ export class HttpError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = await getApiToken()
   const res = await fetch(`${BASE}${path}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(init?.headers ?? {}),
+    },
   })
 
   if (!res.ok) {
@@ -32,6 +40,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  me: () => request<{ staffId: number; name: string; role: 'OWNER' | 'CASHIER' }>('/me'),
   lookups: () => request<Lookups>('/lookups'),
 
   createBrand: (name: string, code?: string) =>
@@ -66,19 +75,45 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  addArticleBatch: (body: AddArticleBatchRequest, idempotencyKey: string) =>
+    request<AddArticleBatchResponse>('/articles/batch', {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify(body),
+    }),
+
+  receiveInventory: (body: InventoryReceiptRequest, idempotencyKey: string) =>
+    request<InventoryReceiptResponse>('/articles/receive', {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify(body),
+    }),
+
+  setReorderLevel: (variantId: number, reorderLevel: number) =>
+    request<{ reorderLevel: number }>(`/articles/${variantId}/reorder-level`, {
+      method: 'PATCH', body: JSON.stringify({ reorderLevel }),
+    }),
+
   article: (variantId: number) => request<ArticleDetail>(`/articles/${variantId}`),
+  articleByCode: (code: string) => request<ArticleDetail>(`/articles/by-code/${encodeURIComponent(code)}`),
 
   /**
    * Blank filters are left off the query string entirely, so the server sees "any"
    * rather than having to interpret an empty value. Pass a signal to drop the
    * response of a search the user has already typed past.
    */
-  listArticles: (filters: Partial<ArticleFilters> = {}, signal?: AbortSignal) => {
-    const params = new URLSearchParams({ size: '100' })
+  listArticles: (filters: Partial<ArticleFilters> = {}, signal?: AbortSignal, page = 0, size = 200) => {
+    const params = new URLSearchParams({ size: String(size), page: String(page) })
     for (const [key, value] of Object.entries(filters)) {
       if (value) params.set(key, value)
     }
     return request<Page<ArticleListItem>>(`/articles?${params}`, { signal })
+  },
+
+  articleSearchSummary: (filters: Partial<ArticleFilters> = {}, signal?: AbortSignal) => {
+    const params = new URLSearchParams()
+    for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value)
+    return request<ArticleSearchSummary>(`/articles/summary?${params}`, { signal })
   },
 
   /**
@@ -107,4 +142,34 @@ export const api = {
   /** Today by default; pass an ISO date to look back at a previous day. */
   day: (date?: string) =>
     request<DaySummary>(`/sales/day${date ? `?date=${date}` : ''}`),
+
+  dashboardReport: (from: string, to: string) => {
+    const params = new URLSearchParams({ from, to })
+    return request<DashboardReport>(`/dashboard/report?${params}`)
+  },
+
+  searchCustomers: (q: string) =>
+    request<CustomerSummary[]>(`/customers?q=${encodeURIComponent(q)}`),
+
+  customerBills: (customerId: number) => request<import('./types').BillSummary[]>(`/customers/${customerId}/bills`),
+
+  returnSale: (saleId: number, body: ReturnRequest, idempotencyKey: string) =>
+    request<ReturnResult>(`/sales/${saleId}/returns`, {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify(body),
+    }),
+
+  returnableBill: (saleId: number) => request<ReturnableBill>(`/sales/${saleId}/returnable`),
+
+  confirmWhatsAppSent: (saleId: number) => request<Bill>(`/sales/${saleId}/whatsapp-confirm`, {
+    method: 'POST', body: JSON.stringify({ sent: true }),
+  }),
+
+  importSales: (bills: CheckoutRequest[], idempotencyKey: string) =>
+    request<{ bills: Bill[] }>('/sales/import-batch', {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify({ bills }),
+    }),
 }

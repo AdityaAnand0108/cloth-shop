@@ -1,7 +1,11 @@
 # secrets
 .env
+.env.local
+.env.*.local
 *.env
 !.env.example
+*.log
+backups/
 
 # java
 backend/target/
@@ -19,3 +23,5 @@ frontend/tsconfig.tsbuildinfo
 *.iml
 .DS_Store
 Thumbs.db
+.neon
+node_modules/

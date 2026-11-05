@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { authClient } from './auth'
 import type { ArticleFilters, Bill } from './api/types'
 import { AddArticlePage } from './features/articles/AddArticlePage'
 import { ArticleDetailPage } from './features/articles/ArticleDetailPage'
@@ -8,6 +9,11 @@ import { CartBar } from './features/cart/CartBar'
 import { CartPage } from './features/cart/CartPage'
 import { CartProvider } from './features/cart/CartContext'
 import { DashboardPage } from './features/dashboard/DashboardPage'
+import { LoginPage } from './features/auth/LoginPage'
+import { ImportPage } from './features/import/ImportPage'
+import { ReceiveStockPage } from './features/inventory/ReceiveStockPage'
+import { CustomerPage } from './features/customers/CustomerPage'
+import { ReturnPage } from './features/sales/ReturnPage'
 
 type View =
   | { name: 'dashboard' }
@@ -17,16 +23,21 @@ type View =
   | { name: 'cart' }
   /** A bill just rung up is carried in whole; an older one is fetched by id. */
   | { name: 'bill'; bill?: Bill; billId?: number }
+  | { name: 'import'; kind: 'inventory' | 'sales' }
+  | { name: 'receive-stock'; variantId?: number }
+  | { name: 'customers' }
+  | { name: 'return'; saleId: number }
 
 export default function App() {
-  return (
-    <CartProvider>
-      <Shell />
-    </CartProvider>
-  )
+  const { data: session, isPending } = authClient.useSession()
+
+  if (isPending) return <main className="login-page"><p className="muted">Checking your session…</p></main>
+  if (!session?.user) return <LoginPage />
+
+  return <CartProvider><Shell userName={session.user.name || session.user.email} userImage={session.user.image} onSignOut={() => { void authClient.signOut() }} /></CartProvider>
 }
 
-function Shell() {
+function Shell({ userName, userImage, onSignOut }: { userName: string; userImage?: string | null; onSignOut: () => void }) {
   const [view, setView] = useState<View>({ name: 'dashboard' })
   // Held here so it survives opening an article and coming back.
   const [filters, setFilters] = useState<ArticleFilters>(NO_FILTERS)
@@ -56,6 +67,7 @@ function Shell() {
             variantId={view.variantId}
             onBack={toArticles}
             onOpenArticle={openArticle}
+            onReceiveStock={variantId => setView({ name: 'receive-stock', variantId })}
           />
         )
       case 'cart':
@@ -74,15 +86,32 @@ function Shell() {
             billId={view.billId}
             onNewSale={toArticles}
             onBack={toDashboard}
+            onReturn={() => setView({ name: 'return', saleId: view.billId ?? view.bill!.id })}
           />
         )
+      case 'import':
+        return <ImportPage kind={view.kind} onBack={toDashboard} />
+      case 'receive-stock':
+        return <ReceiveStockPage initialVariantId={view.variantId} onBack={() => view.variantId ? openArticle(view.variantId) : toDashboard()} />
+      case 'customers':
+        return <CustomerPage onBack={toDashboard} onOpenBill={openBill} />
+      case 'return':
+        return <ReturnPage saleId={view.saleId} onBack={() => openBill(view.saleId)} />
       default:
         return (
           <DashboardPage
+            userName={userName}
+            userImage={userImage}
+            onSignOut={onSignOut}
             onAdd={() => setView({ name: 'add-article' })}
             onViewArticles={toArticles}
             onOpenCart={toCart}
             onOpenBill={openBill}
+            onImportInventory={() => setView({ name: 'import', kind: 'inventory' })}
+            onImportSales={() => setView({ name: 'import', kind: 'sales' })}
+            onReceiveStock={() => setView({ name: 'receive-stock' })}
+            onCustomers={() => setView({ name: 'customers' })}
+            onOpenArticle={openArticle}
           />
         )
     }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../../api/client'
-import type { ArticleFilters, ArticleListItem, Lookups } from '../../api/types'
+import type { ArticleFilters, ArticleListItem, ArticleSearchSummary, Lookups } from '../../api/types'
 import { ArticleTable } from './ArticleTable'
 
 export const NO_FILTERS: ArticleFilters = {
@@ -20,6 +20,8 @@ export function ArticleListPage({ onBack, onSelect, filters, setFilters }: {
   const [lookups, setLookups] = useState<Lookups | null>(null)
   const [items, setItems] = useState<ArticleListItem[]>([])
   const [total, setTotal] = useState(0)
+  const [summary, setSummary] = useState<ArticleSearchSummary | null>(null)
+  const [page, setPage] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -48,10 +50,14 @@ export function ArticleListPage({ onBack, onSelect, filters, setFilters }: {
     const controller = new AbortController()
     const timer = setTimeout(() => {
       setLoading(true)
-      api.listArticles(filters, controller.signal)
-        .then(page => {
-          setItems(page.content)
-          setTotal(page.totalElements)
+      Promise.all([
+        api.listArticles(filters, controller.signal, page),
+        api.articleSearchSummary(filters, controller.signal),
+      ])
+        .then(([result, searchSummary]) => {
+          setItems(result.content)
+          setTotal(result.totalElements)
+          setSummary(searchSummary)
           setError(null)
         })
         .catch((e: Error) => { if (e.name !== 'AbortError') setError(e.message) })
@@ -59,10 +65,17 @@ export function ArticleListPage({ onBack, onSelect, filters, setFilters }: {
     }, 250)
 
     return () => { controller.abort(); clearTimeout(timer) }
-  }, [filters])
+  }, [filters, page])
 
-  const set = (patch: Partial<ArticleFilters>) => setFilters(f => ({ ...f, ...patch }))
+  const set = (patch: Partial<ArticleFilters>) => {
+    setPage(0)
+    setFilters(f => ({ ...f, ...patch }))
+  }
   const anyFilter = Object.values(filters).some(Boolean)
+  const pageSize = 200
+  const pageCount = Math.max(1, Math.ceil(total / pageSize))
+  const firstVisible = total === 0 ? 0 : page * pageSize + 1
+  const lastVisible = Math.min((page + 1) * pageSize, total)
 
   return (
     <div className="page">
@@ -166,13 +179,49 @@ export function ArticleListPage({ onBack, onSelect, filters, setFilters }: {
         </div>
       </div>
 
+      <section className="card search-summary" aria-label="Search summary">
+        <div className="list-head">
+          <div>
+            <h2 className="section-title">Search summary</h2>
+            <p className="muted small">Across all matches, including results on other pages.</p>
+          </div>
+          {loading && <span className="searching-indicator" role="status">Updating…</span>}
+        </div>
+        <div className="search-summary-metrics">
+          <SummaryMetric label="Matching variants" value={summary?.matchingVariants ?? '—'} />
+          <SummaryMetric label="Variants in stock" value={summary?.inStockVariants ?? '—'} />
+          <SummaryMetric label="Units on hand" value={summary?.unitsOnHand ?? '—'} />
+          <div className="search-summary-detail">
+            <span className="stat-label">Sizes</span>
+            <div className="summary-chips">
+              {summary?.sizes.length
+                ? summary.sizes.map(size => <span className="chip" key={size}>{size}</span>)
+                : <span className="muted">—</span>}
+            </div>
+          </div>
+          <div className="search-summary-detail">
+            <span className="stat-label">Colours</span>
+            <div className="summary-chips">
+              {summary?.colours.length
+                ? summary.colours.map(colour => (
+                  <span className="chip" key={colour.id}>
+                    <span className="swatch sm" style={{ background: colour.hex ?? 'transparent' }} />
+                    {colour.name}
+                  </span>
+                ))
+                : <span className="muted">—</span>}
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="card">
         <div className="list-head">
           <h2 className="section-title">
-            Articles {!loading && <span className="count">{total}</span>}
+            Articles <span className="count">{total}</span>
           </h2>
           {anyFilter && (
-            <button type="button" className="ghost" onClick={() => setFilters(NO_FILTERS)}>
+            <button type="button" className="ghost" onClick={() => { setPage(0); setFilters(NO_FILTERS) }}>
               Clear filters
             </button>
           )}
@@ -189,7 +238,21 @@ export function ArticleListPage({ onBack, onSelect, filters, setFilters }: {
               </p>
             )
             : <ArticleTable items={items} onSelect={onSelect} />}
+        {total > pageSize && (
+          <div className="article-pagination">
+            <span className="muted small">Showing {firstVisible}–{lastVisible} of {total}</span>
+            <div className="row-actions">
+              <button type="button" className="ghost small-btn" disabled={page === 0 || loading} onClick={() => setPage(p => Math.max(0, p - 1))}>Previous</button>
+              <span className="small">Page {page + 1} of {pageCount}</span>
+              <button type="button" className="ghost small-btn" disabled={page + 1 >= pageCount || loading} onClick={() => setPage(p => Math.min(pageCount - 1, p + 1))}>Next</button>
+            </div>
+          </div>
+        )}
       </section>
     </div>
   )
+}
+
+function SummaryMetric({ label, value }: { label: string; value: number | string }) {
+  return <div className="search-summary-metric"><span className="stat-label">{label}</span><strong>{typeof value === 'number' ? value.toLocaleString('en-IN') : value}</strong></div>
 }

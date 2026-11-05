@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
 import type { Bill } from '../../api/types'
 import { amount, dateTime, qty, rupees } from '../../money'
+import { whatsappBillText, whatsappBillUrl, whatsappNumber } from './whatsapp'
 
 type Props = {
   /** A bill just rung up, handed straight over so the receipt needs no round trip. */
@@ -10,6 +11,7 @@ type Props = {
   billId?: number
   onNewSale: () => void
   onBack: () => void
+  onReturn: () => void
 }
 
 /**
@@ -21,9 +23,12 @@ type Props = {
  * block carries `no-print`, so handing over the printout never hands over the cost
  * price with it.
  */
-export function BillPage({ bill: given, billId, onNewSale, onBack }: Props) {
+export function BillPage({ bill: given, billId, onNewSale, onBack, onReturn }: Props) {
   const [bill, setBill] = useState<Bill | null>(given ?? null)
   const [error, setError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [confirmingWhatsApp, setConfirmingWhatsApp] = useState(false)
 
   useEffect(() => {
     if (given || billId === undefined) return
@@ -48,6 +53,8 @@ export function BillPage({ bill: given, billId, onNewSale, onBack }: Props) {
   }
 
   const b = bill
+  const whatsappUrl = whatsappBillUrl(b)
+  const hasPhone = Boolean(b.customerPhone)
   const savedByCustomer =
     b.lines.reduce((sum, l) => sum + (l.listPrice - l.unitPrice) * l.qty, 0) + b.discount
   const marginPct = b.total > 0 ? (b.profit / b.total) * 100 : 0
@@ -58,9 +65,52 @@ export function BillPage({ bill: given, billId, onNewSale, onBack }: Props) {
         <button type="button" className="link" onClick={onBack}>&larr; Dashboard</button>
         <div className="actions">
           <button type="button" onClick={() => window.print()}>Print bill</button>
+          {b.status === 'COMPLETED' && <button type="button" onClick={onReturn}>Return / exchange</button>}
+          {whatsappUrl && b.whatsappOptIn && (
+            <>
+              <button type="button" onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(whatsappBillText(b))
+                } catch {
+                  const field = document.createElement('textarea')
+                  field.value = whatsappBillText(b); field.style.position = 'fixed'; field.style.opacity = '0'
+                  document.body.appendChild(field); field.select(); document.execCommand('copy'); field.remove()
+                }
+                setCopied(true); window.setTimeout(() => setCopied(false), 2600)
+              }}>{copied ? 'Message copied' : 'Copy bill message'}</button>
+              <button type="button" className="primary" onClick={() => window.open(whatsappUrl, '_blank', 'noopener,noreferrer')}>
+                Open WhatsApp to send
+            </button>
+              {b.whatsappStatus !== 'SENT' && <button type="button" disabled={confirmingWhatsApp} onClick={async () => {
+                setConfirmingWhatsApp(true)
+                try { setBill(await api.confirmWhatsAppSent(b.id)) }
+                catch (e) { setActionError(e instanceof Error ? e.message : 'Could not record the confirmation.') }
+                finally { setConfirmingWhatsApp(false) }
+              }}>{confirmingWhatsApp ? 'Saving…' : 'I sent it'}</button>}
+            </>
+          )}
           <button type="button" className="primary" onClick={onNewSale}>Next customer</button>
         </div>
       </div>
+
+      {given && hasPhone && !whatsappNumber(b.customerPhone) && (
+        <div className="banner err no-print">
+          Bill saved, but this phone number does not look valid for WhatsApp. Update the
+          customer number on the next sale to share bills.
+        </div>
+      )}
+      {given && whatsappUrl && b.whatsappOptIn && (
+        <div className="banner ok no-print">
+          Bill saved. Copy the message or open WhatsApp, review the receipt and tap Send.
+        </div>
+      )}
+      {given && hasPhone && whatsappUrl && !b.whatsappOptIn && (
+        <div className="banner no-print">
+          WhatsApp receipt controls are hidden because the customer did not opt in at checkout.
+        </div>
+      )}
+      {actionError && <div className="banner err no-print">{actionError}</div>}
+      {b.whatsappStatus === 'SENT' && <div className="banner ok no-print">WhatsApp bill marked sent by staff.</div>}
 
       {given && (
         <div className="banner ok no-print">

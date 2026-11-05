@@ -55,19 +55,28 @@ public final class SaleDtos {
     public record CheckoutRequest(
             @NotEmpty(message = "There is nothing in the cart") @Valid List<CheckoutLine> lines,
             @NotNull(message = "Choose who is billing this") Long staffId,
+            /** Optional original bill number used by reviewed historical imports. */
+            String billNo,
             String customerName,
             String customerPhone,
+            Boolean whatsappOptIn,
             /** Off the whole bill — the round-off, or the last concession. */
             @DecimalMin(value = "0.00", message = "Discount cannot be negative") BigDecimal discount,
             @NotNull(message = "Choose how it was paid") PaymentMode paymentMode,
-            String note
+            String note,
+            /** Used only for reviewed historical imports; normal checkout leaves it null. */
+            Instant createdAt,
+            /** Historical imports can be recorded without changing current stock. */
+            Boolean affectInventory
     ) {
     }
 
     public record CheckoutLine(
             @NotNull Long variantId,
             @NotNull @Positive(message = "Quantity must be at least 1") BigDecimal qty,
-            @NotNull @DecimalMin(value = "0.00", message = "Price cannot be negative") BigDecimal unitPrice
+            @NotNull @DecimalMin(value = "0.00", message = "Price cannot be negative") BigDecimal unitPrice,
+            /** Only honored for an explicitly historical, stock-neutral import. */
+            @DecimalMin(value = "0.00", message = "Historical cost cannot be negative") BigDecimal historicalUnitCost
     ) {
     }
 
@@ -80,6 +89,7 @@ public final class SaleDtos {
             String staffName,
             String customerName,
             String customerPhone,
+            Long customerId,
 
             BigDecimal subtotal,
             BigDecimal discount,
@@ -92,6 +102,9 @@ public final class SaleDtos {
             String paymentMode,
             String note,
             String status,
+            String whatsappStatus,
+            boolean whatsappOptIn,
+            boolean profitEstimated,
             BigDecimal itemCount,
             List<BillLine> lines
     ) {
@@ -108,7 +121,8 @@ public final class SaleDtos {
             BigDecimal listPrice,
             BigDecimal unitPrice,
             BigDecimal unitCost,
-            BigDecimal lineTotal
+            BigDecimal lineTotal,
+            boolean costEstimated
     ) {
     }
 
@@ -135,7 +149,39 @@ public final class SaleDtos {
             BigDecimal itemCount,
             BigDecimal total,
             BigDecimal profit,
-            String paymentMode
+            String paymentMode,
+            boolean profitEstimated
     ) {
     }
+
+    public record ReturnRequest(
+            @NotNull Long staffId,
+            @NotNull String returnType,
+            String reason,
+            PaymentMode refundPaymentMode,
+            @NotEmpty @Valid List<ReturnLineRequest> lines,
+            List<@Valid CheckoutLine> exchangeLines
+    ) {}
+
+    public record ReturnLineRequest(@NotNull Long saleLineId,
+                                    @NotNull @Positive BigDecimal quantity,
+                                    boolean restock) {}
+
+    public record ReturnableBill(Bill bill, List<ReturnableLine> lines) {}
+    public record ReturnableLine(Long saleLineId, Long variantId, String articleCode, String description,
+                                 String colour, String size, BigDecimal soldQuantity,
+                                 BigDecimal returnedQuantity, BigDecimal availableQuantity,
+                                 BigDecimal unitPrice) {}
+
+    public record ReturnLine(Long saleLineId, String articleCode, String description, String colour,
+                             String size, BigDecimal quantity, BigDecimal refundTotal, boolean restocked) {}
+
+    public record ReturnResult(Long id, String returnNo, String originalBillNo, String returnType,
+                               BigDecimal refundAmount, BigDecimal exchangeTotal, BigDecimal settlementDue,
+                               String refundPaymentMode, Instant createdAt, Bill exchangeBill,
+                               List<ReturnLine> lines) {}
+
+    public record SalesImportRequest(@NotEmpty List<@Valid CheckoutRequest> bills) {}
+    public record SalesImportResponse(List<Bill> bills) {}
+    public record WhatsAppConfirmationRequest(@NotNull Boolean sent) {}
 }

@@ -23,4 +23,10 @@ public class Staff {
 
     @Column(nullable = false)
     private boolean active = true;
+
+    @Column(name = "auth_subject", unique = true, length = 128)
+    private String authSubject;
+
+    @Column(nullable = false, length = 16)
+    private String role = "CASHIER";
 }
