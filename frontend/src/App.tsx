@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { authClient } from './auth'
 import type { ArticleFilters, Bill } from './api/types'
 import { AddArticlePage } from './features/articles/AddArticlePage'
 import { ArticleDetailPage } from './features/articles/ArticleDetailPage'
@@ -9,7 +8,6 @@ import { CartBar } from './features/cart/CartBar'
 import { CartPage } from './features/cart/CartPage'
 import { CartProvider } from './features/cart/CartContext'
 import { DashboardPage } from './features/dashboard/DashboardPage'
-import { LoginPage } from './features/auth/LoginPage'
 import { ImportPage } from './features/import/ImportPage'
 import { ReceiveStockPage } from './features/inventory/ReceiveStockPage'
 import { CustomerPage } from './features/customers/CustomerPage'
@@ -29,15 +27,10 @@ type View =
   | { name: 'return'; saleId: number }
 
 export default function App() {
-  const { data: session, isPending } = authClient.useSession()
-
-  if (isPending) return <main className="login-page"><p className="muted">Checking your session…</p></main>
-  if (!session?.user) return <LoginPage />
-
-  return <CartProvider><Shell userName={session.user.name || session.user.email} userImage={session.user.image} onSignOut={() => { void authClient.signOut() }} /></CartProvider>
+  return <CartProvider><Shell /></CartProvider>
 }
 
-function Shell({ userName, userImage, onSignOut }: { userName: string; userImage?: string | null; onSignOut: () => void }) {
+function Shell() {
   const [view, setView] = useState<View>({ name: 'dashboard' })
   // Held here so it survives opening an article and coming back.
   const [filters, setFilters] = useState<ArticleFilters>(NO_FILTERS)
@@ -100,9 +93,7 @@ function Shell({ userName, userImage, onSignOut }: { userName: string; userImage
       default:
         return (
           <DashboardPage
-            userName={userName}
-            userImage={userImage}
-            onSignOut={onSignOut}
+            userName="Staff"
             onAdd={() => setView({ name: 'add-article' })}
             onViewArticles={toArticles}
             onOpenCart={toCart}

@@ -8,7 +8,7 @@ import { qty, rupees, time } from '../../money'
 type Props = {
   userName: string
   userImage?: string | null
-  onSignOut: () => void
+  onSignOut?: () => void
   onAdd: () => void
   onViewArticles: () => void
   onOpenCart: () => void
@@ -151,7 +151,7 @@ export function DashboardPage({ userName, userImage, onSignOut, onAdd, onViewArt
           <summary aria-label={`Account menu for ${userName}`} title={userName}>
             {userImage ? <img src={userImage} alt="" /> : <span>{userName.split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase()}</span>}
           </summary>
-          <div className="account-popover"><span className="account-name">{userName}</span><button type="button" onClick={onSignOut}>Sign out</button></div>
+          <div className="account-popover"><span className="account-name">{userName}</span>{onSignOut && <button type="button" onClick={onSignOut}>Sign out</button>}</div>
         </details>
         </div>
       </header>
