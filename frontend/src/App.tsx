@@ -113,9 +113,25 @@ function Shell() {
   const showCartBar = view.name !== 'cart' && view.name !== 'bill'
 
   return (
-    <>
-      {page()}
-      {showCartBar && <CartBar onOpenCart={toCart} />}
-    </>
+    <div className="app-frame">
+      <aside className="app-sidebar" aria-label="Main navigation">
+        <div className="app-brand"><span className="app-brand-mark">B</span><span>BFlex</span></div>
+        <nav className="app-nav">
+          <button type="button" className={view.name === 'dashboard' ? 'active' : ''} onClick={toDashboard}><span aria-hidden="true">⌂</span>Overview</button>
+          <button type="button" className={view.name === 'articles' || view.name === 'article' ? 'active' : ''} onClick={toArticles}><span aria-hidden="true">▤</span>Articles</button>
+          <button type="button" className={view.name === 'add-article' ? 'active' : ''} onClick={() => setView({ name: 'add-article' })}><span aria-hidden="true">＋</span>Add article</button>
+          <button type="button" className={view.name === 'receive-stock' ? 'active' : ''} onClick={() => setView({ name: 'receive-stock' })}><span aria-hidden="true">⇩</span>Receive stock</button>
+          <button type="button" className={view.name === 'cart' || view.name === 'bill' ? 'active' : ''} onClick={toCart}><span aria-hidden="true">▱</span>Sales cart</button>
+          <button type="button" className={view.name === 'customers' ? 'active' : ''} onClick={() => setView({ name: 'customers' })}><span aria-hidden="true">♙</span>Customers</button>
+          <div className="app-nav-label">Data tools</div>
+          <button type="button" className={view.name === 'import' && view.kind === 'inventory' ? 'active' : ''} onClick={() => setView({ name: 'import', kind: 'inventory' })}><span aria-hidden="true">⇧</span>Import inventory</button>
+          <button type="button" className={view.name === 'import' && view.kind === 'sales' ? 'active' : ''} onClick={() => setView({ name: 'import', kind: 'sales' })}><span aria-hidden="true">⇧</span>Import sales</button>
+        </nav>
+      </aside>
+      <main className="app-main">
+        {page()}
+        {showCartBar && <CartBar onOpenCart={toCart} />}
+      </main>
+    </div>
   )
 }
