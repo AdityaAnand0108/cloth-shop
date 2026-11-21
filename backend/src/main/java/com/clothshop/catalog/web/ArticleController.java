@@ -13,6 +13,10 @@ import com.clothshop.catalog.dto.ArticleDtos.PreviewResponse;
 import com.clothshop.catalog.dto.ArticleDtos.InventoryReceiptRequest;
 import com.clothshop.catalog.dto.ArticleDtos.InventoryReceiptResponse;
 import com.clothshop.catalog.dto.ArticleDtos.ReorderLevelRequest;
+import com.clothshop.catalog.dto.ArticleDtos.ArticleGroup;
+import com.clothshop.catalog.dto.ArticleDtos.UpdateArticleGroupRequest;
+import com.clothshop.catalog.dto.ArticleDtos.StockAdjustmentRequest;
+import com.clothshop.catalog.dto.ArticleDtos.StockAdjustmentResponse;
 import com.clothshop.catalog.service.ArticleService;
 import com.clothshop.platform.service.IdempotencyService;
 import jakarta.validation.Valid;
@@ -84,6 +88,19 @@ public class ArticleController {
                                                @Valid @RequestBody ReorderLevelRequest request) {
         articles.setReorderLevel(id, request.reorderLevel());
         return request;
+    }
+
+    @GetMapping("/{id}/edit-group")
+    public ArticleGroup editGroup(@PathVariable Long id) { return articles.editGroup(id); }
+
+    @PutMapping("/{id}/edit-group")
+    public void updateGroup(@PathVariable Long id, @Valid @RequestBody UpdateArticleGroupRequest request) {
+        articles.updateGroup(id, request);
+    }
+
+    @PostMapping("/{id}/adjustment")
+    public StockAdjustmentResponse adjustStock(@PathVariable Long id, @Valid @RequestBody StockAdjustmentRequest request) {
+        return new StockAdjustmentResponse(articles.adjustStock(id, request));
     }
 
     /** Everything known about one article, for deciding what to charge for it. */

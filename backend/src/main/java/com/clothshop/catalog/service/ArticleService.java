@@ -220,6 +220,55 @@ public class ArticleService {
         return variant.getReorderLevel();
     }
 
+    @Transactional(readOnly = true)
+    public ArticleGroup editGroup(Long variantId) {
+        ProductVariant current = variants.findDetailById(variantId)
+                .orElseThrow(() -> ApiException.notFound("Article"));
+        List<ProductVariant> group = new java.util.ArrayList<>();
+        group.add(current);
+        group.addAll(variants.findSiblings(current.getProduct().getId(), current.getId()));
+        Map<Long, BigDecimal> stock = inventory.onHandByVariant(group.stream().map(ProductVariant::getId).toList());
+        List<EditableVariant> rows = group.stream().map(v -> new EditableVariant(v.getId(), v.getArticleCode(),
+                v.getColour().getName(), v.getColour().getHex(), v.getSize().getName(), v.getAvgCost(),
+                v.getSellingPrice(), v.getReorderLevel(), stock.getOrDefault(v.getId(), BigDecimal.ZERO))).toList();
+        Product p = current.getProduct();
+        return new ArticleGroup(p.getId(), p.getDisplayName(), p.getArticleType().getName(), p.getBrand().getName(),
+                p.getMaterial().getName(), rows);
+    }
+
+    @Transactional
+    public void updateGroup(Long variantId, UpdateArticleGroupRequest request) {
+        ProductVariant selected = variants.findById(variantId).orElseThrow(() -> ApiException.notFound("Article"));
+        Set<Long> expected = variants.findSiblings(selected.getProduct().getId(), selected.getId()).stream()
+                .map(ProductVariant::getId).collect(Collectors.toSet());
+        expected.add(selected.getId());
+        Set<Long> seen = new HashSet<>();
+        for (EditableVariantUpdate row : request.variants()) {
+            if (!seen.add(row.variantId())) throw ApiException.badRequest("DUPLICATE_VARIANT", "A variant appears more than once.");
+            ProductVariant variant = variants.findById(row.variantId()).orElseThrow(() -> ApiException.notFound("Article"));
+            if (!variant.getProduct().getId().equals(selected.getProduct().getId())) {
+                throw ApiException.badRequest("WRONG_PRODUCT", "All variants must belong to the selected article group.");
+            }
+            variant.setSellingPrice(row.sellingPrice());
+            variant.setReorderLevel(row.reorderLevel());
+            variants.save(variant);
+        }
+        if (!seen.equals(expected)) {
+            throw ApiException.badRequest("INCOMPLETE_PRODUCT_GROUP", "Submit every size and colour in this article group.");
+        }
+    }
+
+    @Transactional
+    public BigDecimal adjustStock(Long variantId, StockAdjustmentRequest request) {
+        ProductVariant variant = variants.findById(variantId).orElseThrow(() -> ApiException.notFound("Article"));
+        Location location = inventory.defaultLocation();
+        BigDecimal before = inventory.onHand(variantId, location.getId());
+        BigDecimal delta = request.quantityOnHand().subtract(before);
+        if (delta.signum() != 0) inventory.post(variantId, location.getId(), MovementType.ADJUSTMENT,
+                delta, null, null, "ADJUSTMENT", null, request.reason().trim(), null);
+        return request.quantityOnHand();
+    }
+
     private AddArticleResponse createArticle(Selection sel, String code, AddArticleRequest request,
                                              Location location, Wholesaler wholesaler, String user) {
         // The form never mentions "product" - find or create it behind the scenes, so

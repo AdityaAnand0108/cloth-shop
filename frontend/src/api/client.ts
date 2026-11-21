@@ -1,7 +1,7 @@
 import type {
   AddArticleBatchRequest, AddArticleBatchResponse, AddArticleRequest, AddArticleResponse, ApiError, ArticleDetail, ArticleFilters,
   ArticleListItem, ArticleSearchSummary, Bill, CartArticle, CheckoutRequest, DaySummary, DashboardReport, LookupItem,
-  Lookups, Page, PreviewResponse, WholesalerItem, InventoryReceiptRequest, InventoryReceiptResponse,
+  Lookups, Page, PreviewResponse, WholesalerItem, InventoryReceiptRequest, InventoryReceiptResponse, ArticleEditGroup,
   CustomerSummary, ReturnRequest, ReturnResult,
   ReturnableBill,
 } from './types'
@@ -88,6 +88,14 @@ export const api = {
   setReorderLevel: (variantId: number, reorderLevel: number) =>
     request<{ reorderLevel: number }>(`/articles/${variantId}/reorder-level`, {
       method: 'PATCH', body: JSON.stringify({ reorderLevel }),
+    }),
+
+  articleEditGroup: (variantId: number) => request<ArticleEditGroup>(`/articles/${variantId}/edit-group`),
+  updateArticleEditGroup: (variantId: number, variants: Array<{ variantId: number; sellingPrice: number; reorderLevel: number }>) =>
+    request<void>(`/articles/${variantId}/edit-group`, { method: 'PUT', body: JSON.stringify({ variants }) }),
+  adjustArticleStock: (variantId: number, quantityOnHand: number, reason: string) =>
+    request<{ qtyOnHand: number }>(`/articles/${variantId}/adjustment`, {
+      method: 'POST', body: JSON.stringify({ quantityOnHand, reason }),
     }),
 
   article: (variantId: number) => request<ArticleDetail>(`/articles/${variantId}`),

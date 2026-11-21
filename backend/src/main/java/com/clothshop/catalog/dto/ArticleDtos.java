@@ -5,6 +5,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -189,6 +191,18 @@ public final class ArticleDtos {
     public record InventoryReceiptResponse(String reference, List<AddArticleResponse> items) {}
 
     public record ReorderLevelRequest(@NotNull @DecimalMin("0.00") BigDecimal reorderLevel) {}
+
+    public record ArticleGroup(Long productId, String displayName, String articleType, String brand,
+                               String material, List<EditableVariant> variants) {}
+    public record EditableVariant(Long variantId, String articleCode, String colour, String colourHex,
+                                  String size, BigDecimal avgCost, BigDecimal sellingPrice,
+                                  BigDecimal reorderLevel, BigDecimal qtyOnHand) {}
+    public record UpdateArticleGroupRequest(@NotEmpty List<@Valid EditableVariantUpdate> variants) {}
+    public record EditableVariantUpdate(@NotNull Long variantId, @NotNull @DecimalMin("0.00") BigDecimal sellingPrice,
+                                        @NotNull @DecimalMin("0.00") BigDecimal reorderLevel) {}
+    public record StockAdjustmentRequest(@NotNull @DecimalMin("0.00") BigDecimal quantityOnHand,
+                                         @NotBlank @Size(max = 255) String reason) {}
+    public record StockAdjustmentResponse(BigDecimal qtyOnHand) {}
 
     // ---------- list ----------
 

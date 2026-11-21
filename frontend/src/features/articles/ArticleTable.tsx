@@ -2,9 +2,10 @@ import type { ArticleListItem } from '../../api/types'
 import { AddToCartButton } from '../cart/AddToCartButton'
 import { amount as rupees } from '../../money'
 
-export function ArticleTable({ items, onSelect }: {
+export function ArticleTable({ items, onSelect, onEdit }: {
   items: ArticleListItem[]
   onSelect: (variantId: number) => void
+  onEdit: (variantId: number) => void
 }) {
   return (
     <div className="table-scroll">
@@ -44,7 +45,7 @@ export function ArticleTable({ items, onSelect }: {
                     <ViewIcon />
                   </button>
                   <AddToCartButton variantId={a.variantId} qtyOnHand={Number(a.qtyOnHand)} iconOnly />
-                  <button type="button" className="ghost icon-action" disabled title="Edit article (coming soon)" aria-label={`Edit article ${a.articleCode} (coming soon)`}>
+                  <button type="button" className="ghost icon-action" onClick={() => onEdit(a.variantId)} title="Edit article" aria-label={`Edit article ${a.articleCode}`}>
                     <EditIcon />
                   </button>
                 </div>

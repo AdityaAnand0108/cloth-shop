@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ArticleFilters, Bill } from './api/types'
 import { AddArticlePage } from './features/articles/AddArticlePage'
 import { ArticleDetailPage } from './features/articles/ArticleDetailPage'
+import { EditArticlePage } from './features/articles/EditArticlePage'
 import { ArticleListPage, NO_FILTERS } from './features/articles/ArticleListPage'
 import { BillPage } from './features/cart/BillPage'
 import { CartBar } from './features/cart/CartBar'
@@ -18,6 +19,7 @@ type View =
   | { name: 'add-article' }
   | { name: 'articles' }
   | { name: 'article'; variantId: number }
+  | { name: 'edit-article'; variantId: number }
   | { name: 'cart' }
   /** A bill just rung up is carried in whole; an older one is fetched by id. */
   | { name: 'bill'; bill?: Bill; billId?: number }
@@ -39,6 +41,7 @@ function Shell() {
   const toArticles = () => setView({ name: 'articles' })
   const toCart = () => setView({ name: 'cart' })
   const openArticle = (variantId: number) => setView({ name: 'article', variantId })
+  const editArticle = (variantId: number) => setView({ name: 'edit-article', variantId })
   const openBill = (billId: number) => setView({ name: 'bill', billId })
 
   const page = () => {
@@ -50,6 +53,7 @@ function Shell() {
           <ArticleListPage
             onBack={toDashboard}
             onSelect={openArticle}
+            onEdit={editArticle}
             filters={filters}
             setFilters={setFilters}
           />
@@ -63,6 +67,8 @@ function Shell() {
             onReceiveStock={variantId => setView({ name: 'receive-stock', variantId })}
           />
         )
+      case 'edit-article':
+        return <EditArticlePage variantId={view.variantId} onBack={toArticles} />
       case 'cart':
         return (
           <CartPage
@@ -118,7 +124,7 @@ function Shell() {
         <div className="app-brand"><span className="app-brand-mark">B</span><span>BFlex</span></div>
         <nav className="app-nav">
           <button type="button" className={view.name === 'dashboard' ? 'active' : ''} onClick={toDashboard}><span aria-hidden="true">⌂</span>Overview</button>
-          <button type="button" className={view.name === 'articles' || view.name === 'article' ? 'active' : ''} onClick={toArticles}><span aria-hidden="true">▤</span>Articles</button>
+          <button type="button" className={view.name === 'articles' || view.name === 'article' || view.name === 'edit-article' ? 'active' : ''} onClick={toArticles}><span aria-hidden="true">▤</span>Articles</button>
           <button type="button" className={view.name === 'add-article' ? 'active' : ''} onClick={() => setView({ name: 'add-article' })}><span aria-hidden="true">＋</span>Add article</button>
           <button type="button" className={view.name === 'receive-stock' ? 'active' : ''} onClick={() => setView({ name: 'receive-stock' })}><span aria-hidden="true">⇩</span>Receive stock</button>
           <button type="button" className={view.name === 'cart' || view.name === 'bill' ? 'active' : ''} onClick={toCart}><span aria-hidden="true">▱</span>Sales cart</button>

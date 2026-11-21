@@ -223,6 +223,18 @@ export type ArticleDetail = {
   siblings: SiblingVariant[]
 }
 
+export type ArticleEditGroup = {
+  productId: number
+  displayName: string
+  articleType: string
+  brand: string
+  material: string
+  variants: Array<{
+    variantId: number; articleCode: string; colour: string; colourHex: string | null
+    size: string; avgCost: number; sellingPrice: number; reorderLevel: number; qtyOnHand: number
+  }>
+}
+
 export type Page<T> = {
   content: T[]
   totalElements: number

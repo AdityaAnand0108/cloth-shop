@@ -11,9 +11,10 @@ export const NO_FILTERS: ArticleFilters = {
  * Filters live in the parent so that opening an article and coming back does not
  * throw away the search that found it.
  */
-export function ArticleListPage({ onBack, onSelect, filters, setFilters }: {
+export function ArticleListPage({ onBack, onSelect, onEdit, filters, setFilters }: {
   onBack: () => void
   onSelect: (variantId: number) => void
+  onEdit: (variantId: number) => void
   filters: ArticleFilters
   setFilters: React.Dispatch<React.SetStateAction<ArticleFilters>>
 }) {
@@ -237,7 +238,7 @@ export function ArticleListPage({ onBack, onSelect, filters, setFilters }: {
                   : 'Nothing added yet. The first article you add will appear here.'}
               </p>
             )
-            : <ArticleTable items={items} onSelect={onSelect} />}
+            : <ArticleTable items={items} onSelect={onSelect} onEdit={onEdit} />}
         {total > pageSize && (
           <div className="article-pagination">
             <span className="muted small">Showing {firstVisible}–{lastVisible} of {total}</span>
