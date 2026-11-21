@@ -1172,3 +1172,26 @@ tbody tr:hover { background: #f8fbff; }
   .table-scroll { max-width: 100%; }
   .list-head { align-items: flex-start; }
 }
+
+/* Dashboard banner alignment: stretch across the content area and keep the
+   range, date inputs, and account control on the same desktop row. */
+.page.dashboard-page { width: 100%; max-width: none; margin: 0; }
+.dashboard-head { flex-direction: row; flex-wrap: nowrap; align-items: center; gap: 24px; }
+.dashboard-head > div:first-child { flex: 1 1 auto; min-width: 240px; }
+.dashboard-head .dashboard-tools { flex: 0 1 auto; width: auto; align-items: center; }
+.dashboard-head .dashboard-range { display: flex; align-items: center; flex-wrap: nowrap; gap: 10px; }
+.dashboard-head .dashboard-range .segmented { flex: none; }
+.dashboard-head .dashboard-range .field { width: 155px; min-width: 145px; }
+.bills-search { width: min(100%, 420px); }
+.selected-edit-row { background: #f3f8ff; }
+@media (max-width: 1250px) {
+  .dashboard-head { align-items: flex-start; flex-wrap: wrap; }
+  .dashboard-head .dashboard-tools { width: 100%; justify-content: flex-end; }
+}
+@media (max-width: 700px) {
+  .dashboard-head { gap: 12px; }
+  .dashboard-head .dashboard-tools { align-items: flex-start; justify-content: space-between; }
+  .dashboard-head .dashboard-range { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); flex: 1; }
+  .dashboard-head .dashboard-range .segmented { grid-column: 1 / -1; justify-self: stretch; width: 100%; }
+  .dashboard-head .dashboard-range .field { width: auto; min-width: 0; }
+}

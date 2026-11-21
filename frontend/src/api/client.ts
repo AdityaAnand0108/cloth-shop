@@ -156,6 +156,10 @@ export const api = {
     request<CustomerSummary[]>(`/customers?q=${encodeURIComponent(q)}`),
 
   customerBills: (customerId: number) => request<import('./types').BillSummary[]>(`/customers/${customerId}/bills`),
+  allBills: (q = '', page = 0, size = 50) => {
+    const params = new URLSearchParams({ q, page: String(page), size: String(size) })
+    return request<Page<import('./types').BillSummary>>(`/sales?${params}`)
+  },
 
   returnSale: (saleId: number, body: ReturnRequest, idempotencyKey: string) =>
     request<ReturnResult>(`/sales/${saleId}/returns`, {

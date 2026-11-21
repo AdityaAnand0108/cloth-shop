@@ -2,6 +2,8 @@ package com.clothshop.sales.repository;
 
 import com.clothshop.sales.domain.Sale;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.Lock;
@@ -12,6 +14,15 @@ import java.util.List;
 import java.util.Optional;
 
 public interface SaleRepository extends JpaRepository<Sale, Long> {
+
+    @Query("""
+            select s from Sale s
+             where s.status = 'COMPLETED'
+               and (:q = '' or lower(s.billNo) like lower(concat('%', :q, '%'))
+                    or lower(coalesce(s.customerName, '')) like lower(concat('%', :q, '%')))
+             order by s.createdAt desc
+            """)
+    Page<Sale> searchCompleted(@Param("q") String q, Pageable pageable);
 
     Optional<Sale> findByBillNo(String billNo);
 

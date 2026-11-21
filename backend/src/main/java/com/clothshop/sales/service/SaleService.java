@@ -23,6 +23,8 @@ import com.clothshop.sales.repository.SaleRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -287,6 +289,14 @@ public class SaleService {
                                 s.getTotal(), s.getProfit(), s.getPaymentMode().name(),
                                 s.getLines().stream().anyMatch(SaleLine::isCostEstimated)))
                         .toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Page<BillSummary> bills(String query, Pageable pageable) {
+        String q = query == null ? "" : query.trim();
+        return sales.searchCompleted(q, pageable).map(s -> new BillSummary(s.getId(), s.getBillNo(),
+                s.getCreatedAt(), s.getCustomerName(), s.getCreatedBy(), itemCount(s), s.getTotal(),
+                s.getProfit(), s.getPaymentMode().name(), s.getLines().stream().anyMatch(SaleLine::isCostEstimated)));
     }
 
     // ------------------------------------------------------------------

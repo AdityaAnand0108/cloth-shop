@@ -25,6 +25,10 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import com.clothshop.sales.dto.SaleDtos.BillSummary;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -42,6 +46,14 @@ public class SaleController {
         this.sales = sales;
         this.idempotency = idempotency;
         this.saleReturns = saleReturns;
+    }
+
+    @GetMapping
+    public Page<BillSummary> bills(@RequestParam(defaultValue = "") String q,
+                                   @RequestParam(defaultValue = "0") int page,
+                                   @RequestParam(defaultValue = "50") int size) {
+        return sales.bills(q, PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100),
+                Sort.by(Sort.Direction.DESC, "createdAt")));
     }
 
     @PostMapping("/import-batch")

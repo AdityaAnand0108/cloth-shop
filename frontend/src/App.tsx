@@ -13,6 +13,7 @@ import { ImportPage } from './features/import/ImportPage'
 import { ReceiveStockPage } from './features/inventory/ReceiveStockPage'
 import { CustomerPage } from './features/customers/CustomerPage'
 import { ReturnPage } from './features/sales/ReturnPage'
+import { BillsPage } from './features/sales/BillsPage'
 
 type View =
   | { name: 'dashboard' }
@@ -26,6 +27,7 @@ type View =
   | { name: 'import'; kind: 'inventory' | 'sales' }
   | { name: 'receive-stock'; variantId?: number }
   | { name: 'customers' }
+  | { name: 'bills' }
   | { name: 'return'; saleId: number }
 
 export default function App() {
@@ -94,6 +96,8 @@ function Shell() {
         return <ReceiveStockPage initialVariantId={view.variantId} onBack={() => view.variantId ? openArticle(view.variantId) : toDashboard()} />
       case 'customers':
         return <CustomerPage onBack={toDashboard} onOpenBill={openBill} />
+      case 'bills':
+        return <BillsPage onBack={toDashboard} onOpenBill={openBill} />
       case 'return':
         return <ReturnPage saleId={view.saleId} onBack={() => openBill(view.saleId)} />
       default:
@@ -129,6 +133,7 @@ function Shell() {
           <button type="button" className={view.name === 'receive-stock' ? 'active' : ''} onClick={() => setView({ name: 'receive-stock' })}><span aria-hidden="true">⇩</span>Receive stock</button>
           <button type="button" className={view.name === 'cart' || view.name === 'bill' ? 'active' : ''} onClick={toCart}><span aria-hidden="true">▱</span>Sales cart</button>
           <button type="button" className={view.name === 'customers' ? 'active' : ''} onClick={() => setView({ name: 'customers' })}><span aria-hidden="true">♙</span>Customers</button>
+          <button type="button" className={view.name === 'bills' ? 'active' : ''} onClick={() => setView({ name: 'bills' })}><span aria-hidden="true">▣</span>All bills</button>
           <div className="app-nav-label">Data tools</div>
           <button type="button" className={view.name === 'import' && view.kind === 'inventory' ? 'active' : ''} onClick={() => setView({ name: 'import', kind: 'inventory' })}><span aria-hidden="true">⇧</span>Import inventory</button>
           <button type="button" className={view.name === 'import' && view.kind === 'sales' ? 'active' : ''} onClick={() => setView({ name: 'import', kind: 'sales' })}><span aria-hidden="true">⇧</span>Import sales</button>
