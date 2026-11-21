@@ -160,6 +160,8 @@ export const api = {
     const params = new URLSearchParams({ q, page: String(page), size: String(size) })
     return request<Page<import('./types').BillSummary>>(`/sales?${params}`)
   },
+  existingBillNumbers: (billNumbers: string[]) =>
+    request<string[]>('/sales/existing-bill-numbers', { method: 'POST', body: JSON.stringify(billNumbers) }),
 
   returnSale: (saleId: number, body: ReturnRequest, idempotencyKey: string) =>
     request<ReturnResult>(`/sales/${saleId}/returns`, {

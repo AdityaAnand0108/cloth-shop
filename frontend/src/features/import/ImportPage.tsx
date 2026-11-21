@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import * as XLSX from 'xlsx'
-import { api } from '../../api/client'
+import { api, HttpError } from '../../api/client'
 import type { CheckoutLine, CheckoutRequest, Lookups, PaymentMode } from '../../api/types'
+import { qty, rupees } from '../../money'
 import { NewBrandDialog } from '../articles/NewBrandDialog'
 
 type Kind = 'inventory' | 'sales'
@@ -90,7 +91,12 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
   const [result, setResult] = useState<string | null>(null)
   const [addingBrandForRow, setAddingBrandForRow] = useState<number | null>(null)
   const [unknownArticleCodes, setUnknownArticleCodes] = useState<Set<string>>(new Set())
-  const [articleCheck, setArticleCheck] = useState<'idle' | 'checking' | 'done'>('idle')
+  const [articleCheck, setArticleCheck] = useState<'idle' | 'checking' | 'done' | 'error'>('idle')
+  const [articleInfo, setArticleInfo] = useState<Record<string, { variantId: number; qtyOnHand: number }>>({})
+  const [articleLookupFailures, setArticleLookupFailures] = useState<string[]>([])
+  const [lookupVersion, setLookupVersion] = useState(0)
+  const [existingBills, setExistingBills] = useState<Set<string>>(new Set())
+  const [billCheck, setBillCheck] = useState<'idle' | 'checking' | 'done' | 'error'>('idle')
   const [search, setSearch] = useState('')
   const [issuesOnly, setIssuesOnly] = useState(false)
   const [page, setPage] = useState(0)
@@ -117,6 +123,8 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
   useEffect(() => {
     if (kind !== 'sales' || rows.length === 0) {
       setUnknownArticleCodes(new Set())
+      setArticleInfo({})
+      setArticleLookupFailures([])
       setArticleCheck('idle')
       return
     }
@@ -124,6 +132,8 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
     const codes = [...new Set(rows.map(row => value(row, 'Article Code')).filter(Boolean))]
     if (!codes.length) {
       setUnknownArticleCodes(new Set())
+      setArticleInfo({})
+      setArticleLookupFailures([])
       setArticleCheck('done')
       return
     }
@@ -131,20 +141,44 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
     const timer = window.setTimeout(() => {
       void (async () => {
         const unknown = new Set<string>()
+        const foundArticles: Record<string, { variantId: number; qtyOnHand: number }> = {}
+        const failures: string[] = []
         for (let start = 0; start < codes.length; start += 20) {
           if (cancelled) return
-          const batch = await Promise.all(codes.slice(start, start + 20).map(async code => ({
-            code, found: await api.articleByCode(code).catch(() => null),
-          })))
-          batch.filter(result => !result.found).forEach(result => unknown.add(result.code.toLowerCase()))
+          const batch = await Promise.all(codes.slice(start, start + 20).map(async code => {
+            try { return { code, found: await api.articleByCode(code), failure: false } }
+            catch (e) { return { code, found: null, failure: !(e instanceof HttpError && e.status === 404) } }
+          }))
+          batch.forEach(result => {
+            if (result.found) foundArticles[result.code.toLowerCase()] = { variantId: result.found.variantId, qtyOnHand: Number(result.found.qtyOnHand) }
+            else if (result.failure) failures.push(result.code)
+            else unknown.add(result.code.toLowerCase())
+          })
         }
         if (cancelled) return
         setUnknownArticleCodes(unknown)
-        setArticleCheck('done')
+        setArticleInfo(foundArticles)
+        setArticleLookupFailures(failures)
+        setArticleCheck(failures.length ? 'error' : 'done')
       })()
     }, 300)
     return () => { cancelled = true; window.clearTimeout(timer) }
-  }, [rows, kind])
+  }, [rows, kind, lookupVersion])
+
+  useEffect(() => {
+    if (kind !== 'sales' || rows.length === 0) {
+      setExistingBills(new Set()); setBillCheck('idle'); return
+    }
+    let cancelled = false
+    const billNumbers = [...new Set(rows.map(row => value(row, 'Bill Number')).filter(Boolean))]
+    setBillCheck('checking')
+    const timer = window.setTimeout(() => {
+      api.existingBillNumbers(billNumbers).then(found => {
+        if (!cancelled) { setExistingBills(new Set(found.map(bill => bill.toLowerCase()))); setBillCheck('done') }
+      }).catch(() => { if (!cancelled) setBillCheck('error') })
+    }, 250)
+    return () => { cancelled = true; window.clearTimeout(timer) }
+  }, [rows, kind, lookupVersion])
 
   const validation = useMemo(() => {
     const errors: string[] = []
@@ -174,8 +208,9 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
         const code = value(row, 'Article Code')
         if (code && unknownArticleCodes.has(code.toLowerCase())) errors.push(`Row ${rowNumber}: article code ${code} was not found in inventory.`)
         const date = value(row, 'Sale Date')
-        if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) errors.push(`Row ${rowNumber}: use a valid sale date.`)
+        if (date && (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`)) || new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date)) errors.push(`Row ${rowNumber}: use a valid sale date.`)
         const bill = value(row, 'Bill Number')
+        if (bill && existingBills.has(bill.toLowerCase())) errors.push(`Row ${rowNumber}: bill number ${bill} already exists. Confirm the number or correct it before importing.`)
         for (const header of ['Sale Date', 'Staff', 'Payment Mode', 'Customer Name', 'Customer Phone', 'Discount']) {
           const next = value(row, header).toLowerCase()
           const composite = `${bill}:${header}`
@@ -194,8 +229,38 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
         }
       }
     })
+    if (kind === 'sales') {
+      const totals = new Map<string, { subtotal: number; discount: number; row: number }>()
+      rows.forEach((row, index) => {
+        const billNo = value(row, 'Bill Number')
+        const current = totals.get(billNo) ?? { subtotal: 0, discount: numberValue(value(row, 'Discount')) || 0, row: index }
+        const quantity = numberValue(value(row, 'Quantity')), unitPrice = numberValue(value(row, 'Unit Price'))
+        if (Number.isFinite(quantity) && Number.isFinite(unitPrice)) current.subtotal += quantity * unitPrice
+        totals.set(billNo, current)
+      })
+      for (const [billNo, bill] of totals) {
+        if (bill.discount > bill.subtotal) errors.push(`Row ${bill.row + 2}: discount for bill ${billNo} is greater than its total.`)
+      }
+    }
+    if (kind === 'sales' && !historicalOnly) {
+      const requestedByCode = new Map<string, { quantity: number; rows: number[] }>()
+      rows.forEach((row, index) => {
+        const code = value(row, 'Article Code').toLowerCase()
+        const quantity = numberValue(value(row, 'Quantity'))
+        if (!code || !Number.isFinite(quantity) || quantity <= 0) return
+        const entry = requestedByCode.get(code) ?? { quantity: 0, rows: [] }
+        entry.quantity += quantity; entry.rows.push(index)
+        requestedByCode.set(code, entry)
+      })
+      for (const [code, demand] of requestedByCode) {
+        const available = articleInfo[code]?.qtyOnHand
+        if (available !== undefined && demand.quantity > available) {
+          demand.rows.forEach(index => errors.push(`Row ${index + 2}: requested quantity for ${value(rows[index], 'Article Code')} is ${demand.quantity} across this import, but only ${available} are currently available (short by ${demand.quantity - available}).`))
+        }
+      }
+    }
     return [...new Set(errors)]
-  }, [rows, required, lookups, kind, unknownArticleCodes])
+  }, [rows, required, lookups, kind, unknownArticleCodes, articleInfo, historicalOnly, existingBills])
 
   const pageSize = 50
   const rowIssues = (index: number) => validation.filter(message => message.startsWith(`Row ${index + 2}:`))
@@ -205,6 +270,19 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
   })
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / pageSize))
   const visibleRows = filteredRows.slice(page * pageSize, (page + 1) * pageSize)
+  const billGroups = kind === 'sales' ? new Map<string, Row[]>() : null
+  if (billGroups) rows.forEach(row => {
+    const billNo = value(row, 'Bill Number')
+    billGroups.set(billNo, [...(billGroups.get(billNo) ?? []), row])
+  })
+  const estimatedBillTotal = billGroups ? [...billGroups.values()].reduce((sum, billRows) => {
+    const subtotal = billRows.reduce((billSum, row) => {
+      const qty = numberValue(value(row, 'Quantity')), price = numberValue(value(row, 'Unit Price'))
+      return billSum + (Number.isFinite(qty) && Number.isFinite(price) ? qty * price : 0)
+    }, 0)
+    const discount = numberValue(value(billRows[0], 'Discount'))
+    return sum + Math.max(0, subtotal - (Number.isFinite(discount) ? discount : 0))
+  }, 0) : 0
 
   function goToIssues() {
     setIssuesOnly(true); setPage(0)
@@ -355,9 +433,8 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
   }
 
   async function saveSales() {
-    if (!lookups || validation.length || missingMappings.length) return
-    const bills = new Map<string, Row[]>()
-    rows.forEach(row => { const billNo = value(row, 'Bill Number'); bills.set(billNo, [...(bills.get(billNo) ?? []), row]) })
+    if (!lookups || validation.length || missingMappings.length || articleCheck !== 'done' || billCheck !== 'done') return
+    const bills = billGroups ?? new Map<string, Row[]>()
     const variants = new Map<string, number>()
     const checkouts: CheckoutRequest[] = []
     for (const [billNo, billRows] of bills) {
@@ -370,8 +447,8 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
         const code = value(row, 'Article Code').trim()
         let variantId = variants.get(code.toLowerCase())
         if (!variantId) {
-          const found = await api.articleByCode(code).catch(() => null)
-          if (!found) throw new Error(`Article code ${code} from bill ${billNo} is not in inventory. Correct the code or add the article first.`)
+          const found = articleInfo[code.toLowerCase()]
+          if (!found) throw new Error(`Article code ${code} from bill ${billNo} could not be validated. Retry the article check before saving.`)
           variantId = found.variantId; variants.set(code.toLowerCase(), variantId)
         }
         const cost = value(row, 'Unit Cost')
@@ -416,7 +493,10 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
     {error && <div className="banner err">{error}</div>}{result && <div className="banner ok">{result}</div>}
     <section className="card import-card">
       <div className="import-toolbar"><label className="primary file-button">Choose Excel file<input type="file" accept=".xlsx,.xls,.csv" onChange={e => e.target.files?.[0] && void readFile(e.target.files[0])} /></label><span className="muted small">{fileName || 'No file selected'}</span><button type="button" className="link" onClick={downloadTemplate}>Download Excel template</button></div>
-      {kind === 'sales' && <div className="import-mode"><label className="inline-check"><input type="checkbox" checked={historicalOnly} onChange={e => setHistoricalOnly(e.target.checked)} /> Historical sales: record bills without changing current stock</label><p className="muted small">Historical mode does not change today’s inventory. Add Unit Cost when known; missing cost means imported profit is estimated.</p></div>}
+      {kind === 'sales' && <div className="import-mode"><strong>How should these sales affect inventory?</strong><div className="import-mode-options"><label className="import-mode-choice"><input type="radio" name="sales-import-mode" checked={historicalOnly} onChange={() => setHistoricalOnly(true)} /><span><strong>Historical bills — keep current stock unchanged</strong><small>Recommended for past sales. Record the bill history without changing today’s quantity.</small></span></label><label className="import-mode-choice"><input type="radio" name="sales-import-mode" checked={!historicalOnly} onChange={() => setHistoricalOnly(false)} /><span><strong>Deduct quantities from current stock</strong><small>Use only when these sales have not already been deducted. The bill dates remain as entered; inventory will be reduced now.</small></span></label></div>{historicalOnly && <p className="muted small">Unit Cost is optional for historical bills. If blank, the app uses current average cost and marks profit as estimated.</p>}</div>}
+      {kind === 'sales' && articleLookupFailures.length > 0 && <div className="banner err">Could not check {articleLookupFailures.length} article code(s) because the server did not respond successfully: {articleLookupFailures.slice(0, 5).join(', ')}{articleLookupFailures.length > 5 ? '…' : ''}. <button type="button" className="link" onClick={() => setLookupVersion(version => version + 1)}>Retry article check</button></div>}
+      {kind === 'sales' && billCheck === 'error' && <div className="banner err">Could not check whether imported bill numbers already exist. <button type="button" className="link" onClick={() => setLookupVersion(version => version + 1)}>Retry bill number check</button></div>}
+      {kind === 'sales' && rows.length > 0 && <div className="import-summary-detail"><strong>Import summary</strong><span>{billGroups?.size ?? 0} bills · {rows.length} item rows · estimated total {rupees(estimatedBillTotal)}</span><span>{historicalOnly ? 'Current stock will remain unchanged.' : 'Current stock will be reduced by the imported quantities after validation.'}</span></div>}
       {sourceColumns.length > 0 && <details className="column-mapping" open={missingMappings.length > 0}><summary>Review column mapping · {missingMappings.length ? `${missingMappings.length} required field(s) need a match` : 'automatic matches ready'}</summary><div className="mapping-grid">{columns.map(column => <label className="field" key={column}><span>{column}{required.includes(column) ? ' · required' : ''}</span><select value={mapping[key(column)] ?? ''} onChange={e => changeMapping(column, e.target.value)}><option value="">Not in workbook</option>{sourceColumns.map(source => <option key={source.id} value={source.id}>{source.label}</option>)}</select></label>)}</div><p className="muted small">Automatic matching recognizes common headings such as Qty, Colour/Color, Supplier, Mobile, SKU, Rate and Remarks. Choose a source column manually whenever a heading is ambiguous.</p></details>}
       {missingMappings.length > 0 && <div className="banner err">Map these required fields before saving: {missingMappings.join(', ')}.</div>}
       {rows.length === 0 ? <div><p className="muted">{fileName ? 'There are no rows in this import yet.' : 'Upload an Excel workbook to review its rows here.'}</p>{fileName && <button type="button" className="ghost" onClick={addRow}>＋ Add first row</button>}</div> : <>
@@ -439,13 +519,13 @@ export function ImportPage({ kind, onBack }: { kind: Kind; onBack: () => void })
           <span className="muted small">Showing {filteredRows.length ? page * pageSize + 1 : 0}–{Math.min((page + 1) * pageSize, filteredRows.length)} of {filteredRows.length} matching rows</span>
           <div className="import-pagination"><button type="button" className="ghost" disabled={page === 0} onClick={() => setPage(current => current - 1)}>Previous</button><span>Page {page + 1} of {pageCount}</span><button type="button" className="ghost" disabled={page + 1 >= pageCount} onClick={() => setPage(current => current + 1)}>Next</button></div>
         </div>
-        <div className="table-scroll" id="import-review-table"><table className="import-table"><thead><tr>{columns.map(header => <th key={header}><span>{header}</span>{(SHARED_INVENTORY_COLUMNS.has(header) || (kind === 'sales' && ['Sale Date', 'Customer Name', 'Customer Phone', 'Payment Mode', 'Staff'].includes(header))) && rows.some(row => !value(row, header)) && rows.some(row => value(row, header)) && <button type="button" className="link import-fill-blanks" onClick={() => kind === 'sales' ? fillBlankSalesRows(header) : fillBlankRows(header)}>Fill blanks</button>}</th>)}<th className="import-row-actions-heading">Row actions</th></tr></thead><tbody>{visibleRows.map(({ row, index }) => <tr key={index}>{columns.map(header => {
+        <div className="table-scroll" id="import-review-table"><table className="import-table"><thead><tr>{columns.map(header => <th key={header}><span>{header}</span>{(SHARED_INVENTORY_COLUMNS.has(header) || (kind === 'sales' && ['Sale Date', 'Customer Name', 'Customer Phone', 'Payment Mode', 'Staff'].includes(header))) && rows.some(row => !value(row, header)) && rows.some(row => value(row, header)) && <button type="button" className="link import-fill-blanks" onClick={() => kind === 'sales' ? fillBlankSalesRows(header) : fillBlankRows(header)}>Fill blanks</button>}</th>)}{kind === 'sales' && <th>Stock check</th>}<th className="import-row-actions-heading">Row actions</th></tr></thead><tbody>{visibleRows.map(({ row, index }) => <tr key={index}>{columns.map(header => {
           const cellIssues = issuesForCell(index, header)
           return <td key={header} className={cellIssues.length ? 'import-cell-error' : undefined} title={cellIssues.join(' ')}>{editCell(row, index, header)}</td>
-        })}<td className="import-row-actions"><button type="button" className="link" onClick={() => duplicateRow(index)}>Duplicate</button><button type="button" className="link danger-link" onClick={() => deleteRow(index)}>Delete</button></td></tr>)}</tbody></table>{filteredRows.length === 0 && <p className="muted import-empty-results">No rows match these filters.</p>}</div>
+        })}{kind === 'sales' && <td className="import-stock-check">{articleInfo[value(row, 'Article Code').toLowerCase()] ? `${qty(articleInfo[value(row, 'Article Code').toLowerCase()].qtyOnHand)} available${historicalOnly ? ' · unchanged' : ''}` : unknownArticleCodes.has(value(row, 'Article Code').toLowerCase()) ? <span className="out">Not found</span> : articleCheck === 'error' ? 'Retry check' : 'Checking…'}</td>}<td className="import-row-actions"><button type="button" className="link" onClick={() => duplicateRow(index)}>Duplicate</button><button type="button" className="link danger-link" onClick={() => deleteRow(index)}>Delete</button></td></tr>)}</tbody></table>{filteredRows.length === 0 && <p className="muted import-empty-results">No rows match these filters.</p>}</div>
       </>}
       {validation.length > 0 && <div className="import-errors" id="import-errors"><strong>Resolve these rows before saving</strong>{validation.slice(0, 8).map(message => <p key={message}>{message}</p>)}{validation.length > 8 && <p>…and {validation.length - 8} more issues. Use “Show rows with issues only” to review the affected entries.</p>}</div>}
-      <div className="actions"><button type="button" className="primary" disabled={!rows.length || validation.length > 0 || articleCheck === 'checking' || missingMappings.length > 0 || busy || !lookups} onClick={() => void save()}>{busy ? 'Validating and saving…' : articleCheck === 'checking' ? 'Checking article codes…' : `Validate and save ${rows.length || ''} rows`}</button><button type="button" className="ghost" onClick={onBack}>Cancel</button></div>
+      <div className="actions"><button type="button" className="primary" disabled={!rows.length || validation.length > 0 || (kind === 'sales' && (articleCheck !== 'done' || billCheck !== 'done')) || missingMappings.length > 0 || busy || !lookups} onClick={() => void save()}>{busy ? 'Validating and saving…' : articleCheck === 'checking' || billCheck === 'checking' ? 'Checking articles and bills…' : articleCheck === 'error' || billCheck === 'error' ? 'Retry checks to continue' : `Validate and save ${rows.length || ''} rows`}</button><button type="button" className="ghost" onClick={onBack}>Cancel</button></div>
     </section>
     {addingBrandForRow !== null && <NewBrandDialog
       onCancel={() => setAddingBrandForRow(null)}

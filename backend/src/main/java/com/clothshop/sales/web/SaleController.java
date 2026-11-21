@@ -56,6 +56,11 @@ public class SaleController {
                 Sort.by(Sort.Direction.DESC, "createdAt")));
     }
 
+    @PostMapping("/existing-bill-numbers")
+    public List<String> existingBillNumbers(@RequestBody List<String> billNumbers) {
+        return sales.existingBillNumbers(billNumbers);
+    }
+
     @PostMapping("/import-batch")
     public SalesImportResponse importBatch(@Valid @RequestBody SalesImportRequest request,
                                            @RequestHeader(value = "Idempotency-Key", required = false) String key) {

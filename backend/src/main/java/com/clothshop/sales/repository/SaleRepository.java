@@ -11,6 +11,7 @@ import jakarta.persistence.LockModeType;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
 
 public interface SaleRepository extends JpaRepository<Sale, Long> {
@@ -25,6 +26,7 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     Page<Sale> searchCompleted(@Param("q") String q, Pageable pageable);
 
     Optional<Sale> findByBillNo(String billNo);
+    List<Sale> findByBillNoIn(Collection<String> billNumbers);
 
     /** The bill screen, with its lines in one round trip. */
     @Query("select s from Sale s left join fetch s.lines where s.id = :id")

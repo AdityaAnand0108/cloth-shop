@@ -33,6 +33,9 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -230,8 +233,43 @@ public class SaleService {
         if (request.bills().size() > 1000) {
             throw ApiException.badRequest("IMPORT_TOO_LARGE", "Import up to 1,000 bills at a time.");
         }
+        validateImportStock(request.bills());
         List<Bill> imported = request.bills().stream().map(this::checkout).toList();
         return new SalesImportResponse(imported);
+    }
+
+    /** Check total demand for the complete stock-affecting import before writing any bill. */
+    private void validateImportStock(List<CheckoutRequest> bills) {
+        Map<Long, BigDecimal> demand = new HashMap<>();
+        Map<Long, Set<String>> billNumbers = new HashMap<>();
+        for (CheckoutRequest bill : bills) {
+            if (Boolean.FALSE.equals(bill.affectInventory())) continue;
+            String billNo = blankToNull(bill.billNo());
+            for (CheckoutLine line : bill.lines()) {
+                demand.merge(line.variantId(), line.qty(), BigDecimal::add);
+                if (billNo != null) billNumbers.computeIfAbsent(line.variantId(), ignored -> new HashSet<>()).add(billNo);
+            }
+        }
+        if (demand.isEmpty()) return;
+
+        Location location = inventory.defaultLocation();
+        Map<Long, ProductVariant> articles = variants.findAllForSale(demand.keySet()).stream()
+                .collect(Collectors.toMap(ProductVariant::getId, Function.identity()));
+        for (Map.Entry<Long, BigDecimal> entry : demand.entrySet()) {
+            ProductVariant article = articles.get(entry.getKey());
+            if (article == null) continue; // checkout reports the missing article with its normal 404.
+            BigDecimal available = inventory.onHand(article.getId(), location.getId());
+            if (entry.getValue().compareTo(available) > 0) {
+                BigDecimal shortBy = entry.getValue().subtract(available);
+                Set<String> impactedBills = billNumbers.getOrDefault(article.getId(), Set.of());
+                throw ApiException.conflict("INSUFFICIENT_STOCK",
+                        "Article " + article.getArticleCode() + " needs " + entry.getValue().stripTrailingZeros().toPlainString()
+                                + " units across this import, but only " + available.stripTrailingZeros().toPlainString() + " are available.",
+                        Map.of("variantId", article.getId(), "articleCode", article.getArticleCode(),
+                                "requested", entry.getValue(), "available", available, "shortBy", shortBy,
+                                "billNumbers", String.join(", ", impactedBills)));
+            }
+        }
     }
 
     // ------------------------------------------------------------------
@@ -297,6 +335,14 @@ public class SaleService {
         return sales.searchCompleted(q, pageable).map(s -> new BillSummary(s.getId(), s.getBillNo(),
                 s.getCreatedAt(), s.getCustomerName(), s.getCreatedBy(), itemCount(s), s.getTotal(),
                 s.getProfit(), s.getPaymentMode().name(), s.getLines().stream().anyMatch(SaleLine::isCostEstimated)));
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> existingBillNumbers(List<String> billNumbers) {
+        if (billNumbers == null || billNumbers.isEmpty()) return List.of();
+        if (billNumbers.size() > 1000) throw ApiException.badRequest("IMPORT_TOO_LARGE", "Check up to 1,000 bill numbers at a time.");
+        return sales.findByBillNoIn(billNumbers.stream().map(SaleService::blankToNull).filter(java.util.Objects::nonNull).toList())
+                .stream().map(Sale::getBillNo).toList();
     }
 
     // ------------------------------------------------------------------
