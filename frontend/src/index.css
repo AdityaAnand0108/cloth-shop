@@ -462,6 +462,13 @@ textarea:focus {
 /* ---------- selling: the add-to-cart control ---------- */
 .row-actions { display: inline-flex; gap: 8px; justify-content: flex-end; }
 
+button.icon-action {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; padding: 0; flex: none;
+}
+button.icon-action:disabled { opacity: 0.45; cursor: not-allowed; }
+button.add-to-cart.icon-action:disabled { border-color: var(--border); color: var(--ink-3); background: var(--surface-2); }
+
 button.add-to-cart.small-btn {
   border-color: var(--accent); color: var(--accent-strong); background: var(--surface);
   white-space: nowrap;

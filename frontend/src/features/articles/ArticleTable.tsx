@@ -40,10 +40,13 @@ export function ArticleTable({ items, onSelect }: {
               <td className={`r num ${Number(a.qtyOnHand) <= 0 ? 'out' : ''}`}>{a.qtyOnHand}</td>
               <td className="r">
                 <div className="row-actions">
-                  <button type="button" className="ghost small-btn" onClick={() => onSelect(a.variantId)}>
-                    View
+                  <button type="button" className="ghost icon-action" onClick={() => onSelect(a.variantId)} title="View article" aria-label={`View article ${a.articleCode}`}>
+                    <ViewIcon />
                   </button>
-                  <AddToCartButton variantId={a.variantId} qtyOnHand={Number(a.qtyOnHand)} />
+                  <AddToCartButton variantId={a.variantId} qtyOnHand={Number(a.qtyOnHand)} iconOnly />
+                  <button type="button" className="ghost icon-action" disabled title="Edit article (coming soon)" aria-label={`Edit article ${a.articleCode} (coming soon)`}>
+                    <EditIcon />
+                  </button>
                 </div>
               </td>
             </tr>
@@ -52,4 +55,12 @@ export function ArticleTable({ items, onSelect }: {
       </table>
     </div>
   )
+}
+
+function ViewIcon() {
+  return <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z" /><circle cx="12" cy="12" r="2.7" /></svg>
+}
+
+function EditIcon() {
+  return <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" /></svg>
 }
