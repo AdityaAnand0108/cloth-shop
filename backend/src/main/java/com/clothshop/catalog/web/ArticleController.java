@@ -17,6 +17,8 @@ import com.clothshop.catalog.dto.ArticleDtos.ArticleGroup;
 import com.clothshop.catalog.dto.ArticleDtos.UpdateArticleGroupRequest;
 import com.clothshop.catalog.dto.ArticleDtos.StockAdjustmentRequest;
 import com.clothshop.catalog.dto.ArticleDtos.StockAdjustmentResponse;
+import com.clothshop.catalog.dto.ArticleDtos.OwnerUseRequest;
+import com.clothshop.catalog.dto.ArticleDtos.OwnerUseResponse;
 import com.clothshop.catalog.service.ArticleService;
 import com.clothshop.platform.service.IdempotencyService;
 import jakarta.validation.Valid;
@@ -101,6 +103,11 @@ public class ArticleController {
     @PostMapping("/{id}/adjustment")
     public StockAdjustmentResponse adjustStock(@PathVariable Long id, @Valid @RequestBody StockAdjustmentRequest request) {
         return new StockAdjustmentResponse(articles.adjustStock(id, request));
+    }
+
+    @PostMapping("/{id}/owner-use")
+    public OwnerUseResponse recordOwnerUse(@PathVariable Long id, @Valid @RequestBody OwnerUseRequest request) {
+        return articles.recordOwnerUse(id, request);
     }
 
     /** Everything known about one article, for deciding what to charge for it. */

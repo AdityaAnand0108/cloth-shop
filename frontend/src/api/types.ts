@@ -135,6 +135,7 @@ export type InventoryReceiptRequest = {
 }
 
 export type InventoryReceiptResponse = { reference: string | null; items: AddArticleResponse[] }
+export type OwnerUseResponse = { qtyOnHand: number; unitCost: number; totalCost: number }
 
 /**
  * Held as strings because that is what a `<select>` and a text input give back —

@@ -269,6 +269,18 @@ public class ArticleService {
         return request.quantityOnHand();
     }
 
+    @Transactional
+    public OwnerUseResponse recordOwnerUse(Long variantId, OwnerUseRequest request) {
+        ProductVariant variant = variants.findById(variantId).orElseThrow(() -> ApiException.notFound("Article"));
+        String user = staff.findById(request.staffId()).orElseThrow(() -> ApiException.notFound("Staff member")).getName();
+        Location location = inventory.defaultLocation();
+        BigDecimal unitCost = variant.getLastBuyingPrice();
+        BigDecimal balance = inventory.post(variantId, location.getId(), MovementType.OWNER_USE_OUT,
+                request.quantity().negate(), unitCost, null, "OWNER_USE", null,
+                request.note() == null || request.note().isBlank() ? "Taken for shop owner use" : request.note().trim(), user);
+        return new OwnerUseResponse(balance, unitCost, unitCost.multiply(request.quantity()));
+    }
+
     private AddArticleResponse createArticle(Selection sel, String code, AddArticleRequest request,
                                              Location location, Wholesaler wholesaler, String user) {
         // The form never mentions "product" - find or create it behind the scenes, so

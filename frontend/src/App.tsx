@@ -11,6 +11,7 @@ import { CartProvider } from './features/cart/CartContext'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import { ImportPage } from './features/import/ImportPage'
 import { ReceiveStockPage } from './features/inventory/ReceiveStockPage'
+import { OwnerUsePage } from './features/inventory/OwnerUsePage'
 import { CustomerPage } from './features/customers/CustomerPage'
 import { ReturnPage } from './features/sales/ReturnPage'
 import { BillsPage } from './features/sales/BillsPage'
@@ -26,6 +27,7 @@ type View =
   | { name: 'bill'; bill?: Bill; billId?: number }
   | { name: 'import'; kind: 'inventory' | 'sales' }
   | { name: 'receive-stock'; variantId?: number }
+  | { name: 'owner-use' }
   | { name: 'customers' }
   | { name: 'bills' }
   | { name: 'return'; saleId: number }
@@ -94,6 +96,8 @@ function Shell() {
         return <ImportPage kind={view.kind} onBack={toDashboard} />
       case 'receive-stock':
         return <ReceiveStockPage initialVariantId={view.variantId} onBack={() => view.variantId ? openArticle(view.variantId) : toDashboard()} />
+      case 'owner-use':
+        return <OwnerUsePage onBack={toDashboard} />
       case 'customers':
         return <CustomerPage onBack={toDashboard} onOpenBill={openBill} />
       case 'bills':
@@ -131,6 +135,7 @@ function Shell() {
           <button type="button" className={view.name === 'articles' || view.name === 'article' || view.name === 'edit-article' ? 'active' : ''} onClick={toArticles}><span aria-hidden="true">▤</span>Articles</button>
           <button type="button" className={view.name === 'add-article' ? 'active' : ''} onClick={() => setView({ name: 'add-article' })}><span aria-hidden="true">＋</span>Add article</button>
           <button type="button" className={view.name === 'receive-stock' ? 'active' : ''} onClick={() => setView({ name: 'receive-stock' })}><span aria-hidden="true">⇩</span>Receive stock</button>
+          <button type="button" className={view.name === 'owner-use' ? 'active' : ''} onClick={() => setView({ name: 'owner-use' })}><span aria-hidden="true">↘</span>Owner use</button>
           <button type="button" className={view.name === 'cart' || view.name === 'bill' ? 'active' : ''} onClick={toCart}><span aria-hidden="true">▱</span>Sales cart</button>
           <button type="button" className={view.name === 'customers' ? 'active' : ''} onClick={() => setView({ name: 'customers' })}><span aria-hidden="true">♙</span>Customers</button>
           <button type="button" className={view.name === 'bills' ? 'active' : ''} onClick={() => setView({ name: 'bills' })}><span aria-hidden="true">▣</span>All bills</button>

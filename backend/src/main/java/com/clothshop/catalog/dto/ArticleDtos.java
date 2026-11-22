@@ -203,6 +203,10 @@ public final class ArticleDtos {
     public record StockAdjustmentRequest(@NotNull @DecimalMin("0.00") BigDecimal quantityOnHand,
                                          @NotBlank @Size(max = 255) String reason) {}
     public record StockAdjustmentResponse(BigDecimal qtyOnHand) {}
+    public record OwnerUseRequest(@NotNull @DecimalMin(value = "0.001") BigDecimal quantity,
+                                  @NotNull Long staffId,
+                                  @Size(max = 255) String note) {}
+    public record OwnerUseResponse(BigDecimal qtyOnHand, BigDecimal unitCost, BigDecimal totalCost) {}
 
     // ---------- list ----------
 
