@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
@@ -204,7 +205,7 @@ public final class ArticleDtos {
                                          @NotBlank @Size(max = 255) String reason) {}
     public record StockAdjustmentResponse(BigDecimal qtyOnHand) {}
     public record OwnerUseRequest(@NotNull @DecimalMin(value = "0.001") BigDecimal quantity,
-                                  @NotNull Long staffId,
+                                  @NotBlank @Pattern(regexp = "Aditya|Mahesh|Ashwini") String owner,
                                   @Size(max = 255) String note) {}
     public record OwnerUseResponse(BigDecimal qtyOnHand, BigDecimal unitCost, BigDecimal totalCost) {}
 

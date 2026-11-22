@@ -97,9 +97,9 @@ export const api = {
     request<{ qtyOnHand: number }>(`/articles/${variantId}/adjustment`, {
       method: 'POST', body: JSON.stringify({ quantityOnHand, reason }),
     }),
-  recordOwnerUse: (variantId: number, quantity: number, staffId: number, note?: string) =>
+  recordOwnerUse: (variantId: number, quantity: number, owner: string, note?: string) =>
     request<import('./types').OwnerUseResponse>(`/articles/${variantId}/owner-use`, {
-      method: 'POST', body: JSON.stringify({ quantity, staffId, note }),
+      method: 'POST', body: JSON.stringify({ quantity, owner, note }),
     }),
 
   article: (variantId: number) => request<ArticleDetail>(`/articles/${variantId}`),

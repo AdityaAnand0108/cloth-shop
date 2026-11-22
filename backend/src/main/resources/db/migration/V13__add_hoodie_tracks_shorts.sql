@@ -6,4 +6,5 @@ from (values
     ('TR', 'Tracks', 11, 'LETTER'),
     ('ST', 'Shorts', 12, 'WAIST')
 ) as v(code, name, sort_order, size_group_code)
-join size_group g on g.code = v.size_group_code;
+join size_group g on g.code = v.size_group_code
+on conflict do nothing;

@@ -272,12 +272,11 @@ public class ArticleService {
     @Transactional
     public OwnerUseResponse recordOwnerUse(Long variantId, OwnerUseRequest request) {
         ProductVariant variant = variants.findById(variantId).orElseThrow(() -> ApiException.notFound("Article"));
-        String user = staff.findById(request.staffId()).orElseThrow(() -> ApiException.notFound("Staff member")).getName();
         Location location = inventory.defaultLocation();
         BigDecimal unitCost = variant.getLastBuyingPrice();
         BigDecimal balance = inventory.post(variantId, location.getId(), MovementType.OWNER_USE_OUT,
                 request.quantity().negate(), unitCost, null, "OWNER_USE", null,
-                request.note() == null || request.note().isBlank() ? "Taken for shop owner use" : request.note().trim(), user);
+                request.note() == null || request.note().isBlank() ? "Taken for shop owner use by " + request.owner() : request.note().trim(), request.owner());
         return new OwnerUseResponse(balance, unitCost, unitCost.multiply(request.quantity()));
     }
 
