@@ -146,8 +146,8 @@ export const api = {
     }),
 
   bill: (id: number) => request<Bill>(`/sales/${id}`),
-  updateBillPrices: (id: number, lines: Array<{ lineId: number; unitPrice: number }>) =>
-    request<Bill>(`/sales/${id}/prices`, { method: 'PUT', body: JSON.stringify({ lines }) }),
+  updateBillPrices: (id: number, lines: Array<{ lineId: number; unitPrice: number }>, total: number) =>
+    request<Bill>(`/sales/${id}/prices`, { method: 'PUT', body: JSON.stringify({ lines, total }) }),
 
   /** Today by default; pass an ISO date to look back at a previous day. */
   day: (date?: string) =>

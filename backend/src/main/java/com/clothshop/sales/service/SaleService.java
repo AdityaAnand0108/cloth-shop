@@ -329,11 +329,13 @@ public class SaleService {
         }
         if (!prices.isEmpty()) throw ApiException.badRequest("BILL_LINES_MISMATCH", "A submitted line does not belong to this bill.");
         subtotal = money(subtotal);
-        if (sale.getDiscount().compareTo(subtotal) > 0) {
-            throw ApiException.badRequest("DISCOUNT_EXCEEDS_BILL", "The existing bill discount is more than the corrected subtotal.");
+        BigDecimal total = request.total() == null ? subtotal.subtract(sale.getDiscount()) : money(request.total());
+        if (total.compareTo(subtotal) > 0) {
+            throw ApiException.badRequest("TOTAL_EXCEEDS_SUBTOTAL", "The total paid cannot be more than the corrected subtotal.");
         }
         sale.setSubtotal(subtotal);
-        sale.setTotal(money(subtotal.subtract(sale.getDiscount())));
+        sale.setDiscount(money(subtotal.subtract(total)));
+        sale.setTotal(total);
         sale.setProfit(money(sale.getTotal().subtract(sale.getCostTotal())));
         return toBill(sale);
     }

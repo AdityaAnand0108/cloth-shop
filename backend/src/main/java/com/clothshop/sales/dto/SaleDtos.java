@@ -80,7 +80,8 @@ public final class SaleDtos {
     ) {
     }
 
-    public record BillPriceEditRequest(@NotEmpty List<@Valid BillLinePriceEdit> lines) {}
+    public record BillPriceEditRequest(@NotEmpty List<@Valid BillLinePriceEdit> lines,
+                                       @DecimalMin(value = "0.00", message = "Total cannot be negative") BigDecimal total) {}
     public record BillLinePriceEdit(@NotNull Long lineId,
                                    @NotNull @DecimalMin(value = "0.00", message = "Price cannot be negative") BigDecimal unitPrice) {}
 

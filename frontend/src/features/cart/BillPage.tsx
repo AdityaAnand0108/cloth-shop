@@ -31,6 +31,7 @@ export function BillPage({ bill: given, billId, onNewSale, onBack, onReturn }: P
   const [confirmingWhatsApp, setConfirmingWhatsApp] = useState(false)
   const [editingPrices, setEditingPrices] = useState(false)
   const [priceDrafts, setPriceDrafts] = useState<Record<number, string>>({})
+  const [totalDraft, setTotalDraft] = useState('')
   const [savingPrices, setSavingPrices] = useState(false)
 
   useEffect(() => {
@@ -70,6 +71,7 @@ export function BillPage({ bill: given, billId, onNewSale, onBack, onReturn }: P
           <button type="button" onClick={() => window.print()}>Print bill</button>
           {b.status === 'COMPLETED' && <button type="button" onClick={() => {
             setPriceDrafts(Object.fromEntries(b.lines.map(line => [line.id, String(line.unitPrice)])))
+            setTotalDraft(String(b.total))
             setEditingPrices(true); setActionError(null)
           }}>Correct sold prices</button>}
           {b.status === 'COMPLETED' && <button type="button" onClick={onReturn}>Return / exchange</button>}
@@ -121,15 +123,16 @@ export function BillPage({ bill: given, billId, onNewSale, onBack, onReturn }: P
 
       {editingPrices && <section className="card no-print">
         <h2 className="section-title">Correct sold prices</h2>
-        <p className="muted small">Update the unit price charged on each line. Quantities and stock stay unchanged; bill totals update when saved.</p>
+        <p className="muted small">Update sold prices or the total paid. The bill discount and profit recalculate; quantities and stock stay unchanged.</p>
         <div className="table-scroll"><table><thead><tr><th>Article</th><th className="r">Qty</th><th className="r">Sold price</th></tr></thead>
           <tbody>{b.lines.map(line => <tr key={line.id}><td>{line.description}<span className="bill-line-sub"><code>{line.articleCode}</code> {line.colour} · size {line.size}</span></td>
             <td className="r num">{qty(line.qty)}</td><td className="r"><input aria-label={`Sold price for ${line.articleCode}`} type="number" min="0" step="0.01" value={priceDrafts[line.id] ?? ''} onChange={event => setPriceDrafts(current => ({ ...current, [line.id]: event.target.value }))} /></td>
           </tr>)}</tbody></table></div>
-        <div className="actions"><button type="button" className="primary" disabled={savingPrices || b.lines.some(line => priceDrafts[line.id] === '' || !Number.isFinite(Number(priceDrafts[line.id])) || Number(priceDrafts[line.id]) < 0)} onClick={async () => {
+        <label className="field"><span>Total paid</span><input aria-label="Total paid" type="number" min="0" step="0.01" value={totalDraft} onChange={event => setTotalDraft(event.target.value)} /><small className="muted">Must be no more than the corrected subtotal ({rupees(b.lines.reduce((sum, line) => sum + Number(priceDrafts[line.id] || 0) * line.qty, 0))}).</small></label>
+        <div className="actions"><button type="button" className="primary" disabled={savingPrices || totalDraft === '' || !Number.isFinite(Number(totalDraft)) || Number(totalDraft) < 0 || Number(totalDraft) > b.lines.reduce((sum, line) => sum + Number(priceDrafts[line.id] || 0) * line.qty, 0) || b.lines.some(line => priceDrafts[line.id] === '' || !Number.isFinite(Number(priceDrafts[line.id])) || Number(priceDrafts[line.id]) < 0)} onClick={async () => {
           setSavingPrices(true); setActionError(null)
           try {
-            const updated = await api.updateBillPrices(b.id, b.lines.map(line => ({ lineId: line.id, unitPrice: Number(priceDrafts[line.id]) })))
+            const updated = await api.updateBillPrices(b.id, b.lines.map(line => ({ lineId: line.id, unitPrice: Number(priceDrafts[line.id]) })), Number(totalDraft))
             setBill(updated); setEditingPrices(false)
           } catch (e) { setActionError(e instanceof Error ? e.message : 'Could not update bill prices.') }
           finally { setSavingPrices(false) }
