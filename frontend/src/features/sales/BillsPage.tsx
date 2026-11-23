@@ -37,7 +37,7 @@ export function BillsPage({ onBack, onOpenBill }: { onBack: () => void; onOpenBi
         <label className="field bills-search"><span>Search bills</span><input value={query} onChange={event => { setPage(0); setQuery(event.target.value) }} placeholder="Bill number or customer name" /></label>
         {loading && bills.length === 0 ? <p className="muted">Loading bills…</p> : bills.length === 0 ? <p className="muted">{query ? 'No bills match this search.' : 'No completed bills yet.'}</p> : (
           <div className="table-scroll"><table>
-            <thead><tr><th>Bill</th><th>Date and time</th><th>Customer</th><th>Staff</th><th className="r">Items</th><th>Payment</th><th className="r">Total</th><th></th></tr></thead>
+            <thead><tr><th>Bill</th><th>Date and time</th><th>Customer</th><th>Staff</th><th className="r">Items</th><th>Payment</th><th>WhatsApp</th><th className="r">Total</th><th></th></tr></thead>
             <tbody>{bills.map(bill => <tr key={bill.id}>
               <td><button type="button" className="code-link" onClick={() => onOpenBill(bill.id)}>{bill.billNo}</button></td>
               <td>{dateTime(bill.createdAt)}</td>
@@ -45,6 +45,7 @@ export function BillsPage({ onBack, onOpenBill }: { onBack: () => void; onOpenBi
               <td>{bill.staffName || '—'}</td>
               <td className="r num">{qty(bill.itemCount)}</td>
               <td>{bill.paymentMode}</td>
+              <td>{bill.whatsappStatus === 'SENT' ? <span className="tag ok">Sent</span> : <span className="tag muted-tag">Not sent</span>}</td>
               <td className="r num">{rupees(bill.total)}{bill.profitEstimated && <small className="warn block">Estimated cost</small>}</td>
               <td className="r"><button type="button" className="ghost small-btn" onClick={() => onOpenBill(bill.id)}>Open</button></td>
             </tr>)}</tbody>

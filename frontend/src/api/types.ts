@@ -301,6 +301,7 @@ export type CheckoutRequest = {
 }
 
 export type BillLine = {
+  id: number
   variantId: number
   articleCode: string
   description: string
@@ -350,6 +351,7 @@ export type BillSummary = {
   profit: number
   paymentMode: PaymentMode
   profitEstimated: boolean
+  whatsappStatus: string
 }
 
 export type DaySummary = {

@@ -29,6 +29,9 @@ export function BillPage({ bill: given, billId, onNewSale, onBack, onReturn }: P
   const [actionError, setActionError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [confirmingWhatsApp, setConfirmingWhatsApp] = useState(false)
+  const [editingPrices, setEditingPrices] = useState(false)
+  const [priceDrafts, setPriceDrafts] = useState<Record<number, string>>({})
+  const [savingPrices, setSavingPrices] = useState(false)
 
   useEffect(() => {
     if (given || billId === undefined) return
@@ -56,7 +59,7 @@ export function BillPage({ bill: given, billId, onNewSale, onBack, onReturn }: P
   const whatsappUrl = whatsappBillUrl(b)
   const hasPhone = Boolean(b.customerPhone)
   const savedByCustomer =
-    b.lines.reduce((sum, l) => sum + (l.listPrice - l.unitPrice) * l.qty, 0) + b.discount
+    b.lines.reduce((sum, l) => sum + Math.max(0, l.listPrice - l.unitPrice) * l.qty, 0) + b.discount
   const marginPct = b.total > 0 ? (b.profit / b.total) * 100 : 0
 
   return (
@@ -65,6 +68,10 @@ export function BillPage({ bill: given, billId, onNewSale, onBack, onReturn }: P
         <button type="button" className="link" onClick={onBack}>&larr; Dashboard</button>
         <div className="actions">
           <button type="button" onClick={() => window.print()}>Print bill</button>
+          {b.status === 'COMPLETED' && <button type="button" onClick={() => {
+            setPriceDrafts(Object.fromEntries(b.lines.map(line => [line.id, String(line.unitPrice)])))
+            setEditingPrices(true); setActionError(null)
+          }}>Correct sold prices</button>}
           {b.status === 'COMPLETED' && <button type="button" onClick={onReturn}>Return / exchange</button>}
           {whatsappUrl && b.whatsappOptIn && (
             <>
@@ -79,14 +86,14 @@ export function BillPage({ bill: given, billId, onNewSale, onBack, onReturn }: P
                 setCopied(true); window.setTimeout(() => setCopied(false), 2600)
               }}>{copied ? 'Message copied' : 'Copy bill message'}</button>
               <button type="button" className="primary" onClick={() => window.open(whatsappUrl, '_blank', 'noopener,noreferrer')}>
-                Open WhatsApp to send
-            </button>
-              {b.whatsappStatus !== 'SENT' && <button type="button" disabled={confirmingWhatsApp} onClick={async () => {
+                {b.whatsappStatus === 'SENT' ? 'Resend bill on WhatsApp' : 'Open WhatsApp to send'}
+              </button>
+              <button type="button" disabled={confirmingWhatsApp} onClick={async () => {
                 setConfirmingWhatsApp(true)
                 try { setBill(await api.confirmWhatsAppSent(b.id)) }
                 catch (e) { setActionError(e instanceof Error ? e.message : 'Could not record the confirmation.') }
                 finally { setConfirmingWhatsApp(false) }
-              }}>{confirmingWhatsApp ? 'Saving…' : 'I sent it'}</button>}
+              }}>{confirmingWhatsApp ? 'Saving…' : b.whatsappStatus === 'SENT' ? 'I resent it' : 'I sent it'}</button>
             </>
           )}
           <button type="button" className="primary" onClick={onNewSale}>Next customer</button>
@@ -111,6 +118,24 @@ export function BillPage({ bill: given, billId, onNewSale, onBack, onReturn }: P
       )}
       {actionError && <div className="banner err no-print">{actionError}</div>}
       {b.whatsappStatus === 'SENT' && <div className="banner ok no-print">WhatsApp bill marked sent by staff.</div>}
+
+      {editingPrices && <section className="card no-print">
+        <h2 className="section-title">Correct sold prices</h2>
+        <p className="muted small">Update the unit price charged on each line. Quantities and stock stay unchanged; bill totals update when saved.</p>
+        <div className="table-scroll"><table><thead><tr><th>Article</th><th className="r">Qty</th><th className="r">Sold price</th></tr></thead>
+          <tbody>{b.lines.map(line => <tr key={line.id}><td>{line.description}<span className="bill-line-sub"><code>{line.articleCode}</code> {line.colour} · size {line.size}</span></td>
+            <td className="r num">{qty(line.qty)}</td><td className="r"><input aria-label={`Sold price for ${line.articleCode}`} type="number" min="0" step="0.01" value={priceDrafts[line.id] ?? ''} onChange={event => setPriceDrafts(current => ({ ...current, [line.id]: event.target.value }))} /></td>
+          </tr>)}</tbody></table></div>
+        <div className="actions"><button type="button" className="primary" disabled={savingPrices || b.lines.some(line => priceDrafts[line.id] === '' || !Number.isFinite(Number(priceDrafts[line.id])) || Number(priceDrafts[line.id]) < 0)} onClick={async () => {
+          setSavingPrices(true); setActionError(null)
+          try {
+            const updated = await api.updateBillPrices(b.id, b.lines.map(line => ({ lineId: line.id, unitPrice: Number(priceDrafts[line.id]) })))
+            setBill(updated); setEditingPrices(false)
+          } catch (e) { setActionError(e instanceof Error ? e.message : 'Could not update bill prices.') }
+          finally { setSavingPrices(false) }
+        }}>{savingPrices ? 'Saving…' : 'Save corrected prices'}</button>
+          <button type="button" onClick={() => setEditingPrices(false)} disabled={savingPrices}>Cancel</button></div>
+      </section>}
 
       {given && (
         <div className="banner ok no-print">

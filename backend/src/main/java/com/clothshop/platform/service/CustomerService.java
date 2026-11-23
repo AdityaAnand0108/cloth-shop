@@ -69,16 +69,18 @@ public class CustomerService {
         return jdbc.query("""
                 select s.id, s.bill_no, s.created_at, s.customer_name, s.created_by,
                        coalesce(sum(sl.qty),0) as item_count, s.total, s.profit,
-                       s.payment_mode, coalesce(bool_or(sl.cost_estimated), false) as profit_estimated
+                       s.payment_mode, coalesce(bool_or(sl.cost_estimated), false) as profit_estimated,
+                       s.whatsapp_status
                   from sale s left join sale_line sl on sl.sale_id=s.id
                  where s.customer_id=? and s.status='COMPLETED'
                  group by s.id, s.bill_no, s.created_at, s.customer_name, s.created_by,
-                          s.total, s.profit, s.payment_mode
+                          s.total, s.profit, s.payment_mode, s.whatsapp_status
                  order by s.created_at desc limit 20
                 """, (rs, row) -> new BillSummary(rs.getLong("id"), rs.getString("bill_no"),
                 rs.getTimestamp("created_at").toInstant(), rs.getString("customer_name"),
                 rs.getString("created_by"), rs.getBigDecimal("item_count"), rs.getBigDecimal("total"),
-                rs.getBigDecimal("profit"), rs.getString("payment_mode"), rs.getBoolean("profit_estimated")), customerId);
+                rs.getBigDecimal("profit"), rs.getString("payment_mode"), rs.getBoolean("profit_estimated"),
+                rs.getString("whatsapp_status")), customerId);
     }
 
     public static String normalize(String phone) {

@@ -80,6 +80,10 @@ public final class SaleDtos {
     ) {
     }
 
+    public record BillPriceEditRequest(@NotEmpty List<@Valid BillLinePriceEdit> lines) {}
+    public record BillLinePriceEdit(@NotNull Long lineId,
+                                   @NotNull @DecimalMin(value = "0.00", message = "Price cannot be negative") BigDecimal unitPrice) {}
+
     // ---------- the bill ----------
 
     public record Bill(
@@ -111,6 +115,7 @@ public final class SaleDtos {
     }
 
     public record BillLine(
+            Long id,
             Long variantId,
             String articleCode,
             String description,
@@ -150,7 +155,8 @@ public final class SaleDtos {
             BigDecimal total,
             BigDecimal profit,
             String paymentMode,
-            boolean profitEstimated
+            boolean profitEstimated,
+            String whatsappStatus
     ) {
     }
 

@@ -12,6 +12,7 @@ import com.clothshop.sales.domain.Sale;
 import com.clothshop.sales.domain.SaleLine;
 import com.clothshop.sales.dto.SaleDtos.Bill;
 import com.clothshop.sales.dto.SaleDtos.BillLine;
+import com.clothshop.sales.dto.SaleDtos.BillPriceEditRequest;
 import com.clothshop.sales.dto.SaleDtos.BillSummary;
 import com.clothshop.sales.dto.SaleDtos.CartArticle;
 import com.clothshop.sales.dto.SaleDtos.CheckoutLine;
@@ -20,6 +21,7 @@ import com.clothshop.sales.dto.SaleDtos.DaySummary;
 import com.clothshop.sales.dto.SaleDtos.SalesImportRequest;
 import com.clothshop.sales.dto.SaleDtos.SalesImportResponse;
 import com.clothshop.sales.repository.SaleRepository;
+import com.clothshop.sales.repository.SaleReturnLineRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,6 +51,7 @@ public class SaleService {
 
     private final ProductVariantRepository variants;
     private final SaleRepository sales;
+    private final SaleReturnLineRepository returnLines;
     private final StaffRepository staff;
     private final CustomerService customers;
     private final InventoryService inventory;
@@ -56,11 +59,12 @@ public class SaleService {
     private final ZoneId shopZone;
 
     public SaleService(ProductVariantRepository variants, SaleRepository sales,
-                       StaffRepository staff, InventoryService inventory,
+                       StaffRepository staff, InventoryService inventory, SaleReturnLineRepository returnLines,
                        BillNumberGenerator billNumbers, CustomerService customers,
                        @Value("${app.shop.zone}") String shopZone) {
         this.variants = variants;
         this.sales = sales;
+        this.returnLines = returnLines;
         this.staff = staff;
         this.customers = customers;
         this.inventory = inventory;
@@ -296,6 +300,44 @@ public class SaleService {
         return toBill(sale);
     }
 
+    @Transactional
+    public Bill updateBillPrices(Long id, BillPriceEditRequest request) {
+        sales.lockById(id).orElseThrow(() -> ApiException.notFound("Bill"));
+        Sale sale = sales.findWithLines(id).orElseThrow(() -> ApiException.notFound("Bill"));
+        if (!"COMPLETED".equals(sale.getStatus())) {
+            throw ApiException.badRequest("BILL_NOT_EDITABLE", "Only completed bills can be edited.");
+        }
+        if (returnLines.existsByOriginalSaleLineIdIn(sale.getLines().stream().map(SaleLine::getId).toList())) {
+            throw ApiException.badRequest("BILL_ALREADY_RETURNED", "A bill with returned items cannot have its prices changed.");
+        }
+        if (request.lines().size() != sale.getLines().size()) {
+            throw ApiException.badRequest("BILL_LINES_MISMATCH", "Submit the price for every bill line.");
+        }
+        Map<Long, BigDecimal> prices = new HashMap<>();
+        for (var edit : request.lines()) {
+            if (prices.put(edit.lineId(), money(edit.unitPrice())) != null) {
+                throw ApiException.badRequest("DUPLICATE_BILL_LINE", "A bill line was submitted more than once.");
+            }
+        }
+        BigDecimal subtotal = BigDecimal.ZERO;
+        for (SaleLine line : sale.getLines()) {
+            BigDecimal unitPrice = prices.remove(line.getId());
+            if (unitPrice == null) throw ApiException.badRequest("BILL_LINES_MISMATCH", "A bill line is missing.");
+            line.setUnitPrice(unitPrice);
+            line.setLineTotal(money(unitPrice.multiply(line.getQty())));
+            subtotal = subtotal.add(line.getLineTotal());
+        }
+        if (!prices.isEmpty()) throw ApiException.badRequest("BILL_LINES_MISMATCH", "A submitted line does not belong to this bill.");
+        subtotal = money(subtotal);
+        if (sale.getDiscount().compareTo(subtotal) > 0) {
+            throw ApiException.badRequest("DISCOUNT_EXCEEDS_BILL", "The existing bill discount is more than the corrected subtotal.");
+        }
+        sale.setSubtotal(subtotal);
+        sale.setTotal(money(subtotal.subtract(sale.getDiscount())));
+        sale.setProfit(money(sale.getTotal().subtract(sale.getCostTotal())));
+        return toBill(sale);
+    }
+
     /**
      * How the day is going, and every bill in it. "Today" is the shop's day, not UTC's:
      * a sale rung up at nine in the evening belongs to the day the shutter came down on.
@@ -325,7 +367,7 @@ public class SaleService {
                         .map(s -> new BillSummary(s.getId(), s.getBillNo(), s.getCreatedAt(),
                                 s.getCustomerName(), s.getCreatedBy(), itemCount(s),
                                 s.getTotal(), s.getProfit(), s.getPaymentMode().name(),
-                                s.getLines().stream().anyMatch(SaleLine::isCostEstimated)))
+                                s.getLines().stream().anyMatch(SaleLine::isCostEstimated), s.getWhatsappStatus()))
                         .toList());
     }
 
@@ -334,7 +376,7 @@ public class SaleService {
         String q = query == null ? "" : query.trim();
         return sales.searchCompleted(q, pageable).map(s -> new BillSummary(s.getId(), s.getBillNo(),
                 s.getCreatedAt(), s.getCustomerName(), s.getCreatedBy(), itemCount(s), s.getTotal(),
-                s.getProfit(), s.getPaymentMode().name(), s.getLines().stream().anyMatch(SaleLine::isCostEstimated)));
+                s.getProfit(), s.getPaymentMode().name(), s.getLines().stream().anyMatch(SaleLine::isCostEstimated), s.getWhatsappStatus()));
     }
 
     @Transactional(readOnly = true)
@@ -360,7 +402,7 @@ public class SaleService {
                 s.getLines().stream().anyMatch(SaleLine::isCostEstimated),
                 itemCount(s),
                 s.getLines().stream()
-                        .map(l -> new BillLine(l.getVariantId(), l.getArticleCode(),
+                        .map(l -> new BillLine(l.getId(), l.getVariantId(), l.getArticleCode(),
                                 l.getDescription(), l.getColour(), l.getSize(), l.getQty(),
                                 l.getListPrice(), l.getUnitPrice(), l.getUnitCost(),
                                 l.getLineTotal(), l.isCostEstimated()))

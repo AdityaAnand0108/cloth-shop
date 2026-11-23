@@ -62,20 +62,20 @@ public class Sale {
     private Instant whatsappSentAt;
 
     /** Sum of the line totals, before the bill-level discount. */
-    @Column(nullable = false, updatable = false, precision = 12, scale = 2)
+    @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal subtotal;
 
     /** Taken off the whole bill — the round-off or the final concession. */
-    @Column(nullable = false, updatable = false, precision = 12, scale = 2)
+    @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal discount = BigDecimal.ZERO;
 
-    @Column(nullable = false, updatable = false, precision = 12, scale = 2)
+    @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal total;
 
     @Column(name = "cost_total", nullable = false, updatable = false, precision = 12, scale = 2)
     private BigDecimal costTotal;
 
-    @Column(nullable = false, updatable = false, precision = 12, scale = 2)
+    @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal profit;
 
     @Enumerated(EnumType.STRING)

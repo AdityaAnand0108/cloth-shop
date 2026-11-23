@@ -1,6 +1,7 @@
 package com.clothshop.sales.web;
 
 import com.clothshop.sales.dto.SaleDtos.Bill;
+import com.clothshop.sales.dto.SaleDtos.BillPriceEditRequest;
 import com.clothshop.sales.dto.SaleDtos.CartArticle;
 import com.clothshop.sales.dto.SaleDtos.CheckoutRequest;
 import com.clothshop.sales.dto.SaleDtos.DaySummary;
@@ -20,6 +21,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -116,6 +118,11 @@ public class SaleController {
     @GetMapping("/{id}")
     public Bill bill(@PathVariable Long id) {
         return sales.bill(id);
+    }
+
+    @PutMapping("/{id}/prices")
+    public Bill updateBillPrices(@PathVariable Long id, @Valid @RequestBody BillPriceEditRequest request) {
+        return sales.updateBillPrices(id, request);
     }
 
     /** How the day is going. Defaults to today in the shop's own time zone. */
