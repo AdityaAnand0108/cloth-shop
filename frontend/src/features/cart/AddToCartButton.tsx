@@ -11,10 +11,11 @@ import { useCart } from './CartContext'
  * Out of stock, it refuses. Promising a garment the shop does not have is the one
  * mistake this screen exists to prevent.
  */
-export function AddToCartButton({ variantId, qtyOnHand, size = 'small' }: {
+export function AddToCartButton({ variantId, qtyOnHand, size = 'small', iconOnly = false }: {
   variantId: number
   qtyOnHand: number
   size?: 'small' | 'full'
+  iconOnly?: boolean
 }) {
   const cart = useCart()
   const inCart = cart.qtyOf(variantId)
@@ -44,17 +45,37 @@ export function AddToCartButton({ variantId, qtyOnHand, size = 'small' }: {
       type="button"
       className={[
         size === 'full' ? 'primary' : 'small-btn',
+        iconOnly ? 'icon-action' : '',
         'add-to-cart',
         inCart > 0 ? 'has-some' : '',
         justAdded ? 'flash' : '',
       ].filter(Boolean).join(' ')}
       disabled={soldOut || atLimit}
       onClick={onClick}
-      title={atLimit && !soldOut
-        ? `Only ${qtyOnHand} on the shelf, and they are all in the cart`
-        : undefined}
+      title={soldOut ? 'Out of stock'
+        : atLimit ? `Only ${qtyOnHand} on the shelf, and they are all in the cart`
+          : justAdded ? 'Added to cart'
+            : inCart > 0 ? `In cart: ${inCart}. Add another`
+              : 'Add to cart'}
+      aria-label={soldOut ? 'Out of stock'
+        : atLimit ? 'All available stock is in the cart'
+          : 'Add to cart'}
     >
-      {label}
+      {iconOnly
+        ? <CartIcon unavailable={soldOut} />
+        : label}
     </button>
+  )
+}
+
+function CartIcon({ unavailable }: { unavailable: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 4h2l2.2 10.1a2 2 0 0 0 2 1.6h7.9a2 2 0 0 0 1.9-1.4L21 8H6" />
+      <circle cx="10" cy="20" r="1" />
+      <circle cx="18" cy="20" r="1" />
+      {unavailable && <path d="m9 9 7 6m0-6-7 6" />}
+      {!unavailable && <path d="M13 5v6m-3-3h6" />}
+    </svg>
   )
 }

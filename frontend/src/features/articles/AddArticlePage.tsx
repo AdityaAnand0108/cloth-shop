@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { api, HttpError } from '../../api/client'
 import type {
-  AddArticleResponse, ExistingArticle, LookupItem, Lookups, PreviewResponse,
+  AddArticleBatchResponse, Lookups, PreviewResponse,
 } from '../../api/types'
-import { CodePreview } from './CodePreview'
-import { DuplicateDialog } from './DuplicateDialog'
+import { BatchDuplicateDialog, type DuplicateSize } from './BatchDuplicateDialog'
 import { NewBrandDialog } from './NewBrandDialog'
 import { NewWholesalerDialog } from './NewWholesalerDialog'
 
@@ -12,13 +11,13 @@ type Selection = {
   articleTypeId: string
   brandId: string
   materialId: string
-  colourId: string
-  sizeId: string
 }
 
 const EMPTY: Selection = {
-  articleTypeId: '', brandId: '', materialId: '', colourId: '', sizeId: '',
+  articleTypeId: '', brandId: '', materialId: '',
 }
+const STAFF_STORAGE_KEY = 'bflex.staff.v1'
+const SUPPLIER_STORAGE_KEY = 'bflex.wholesaler.v1'
 
 const newIdempotencyKey = () =>
   (crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`)
@@ -28,22 +27,32 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
   const [loadError, setLoadError] = useState<string | null>(null)
 
   const [sel, setSel] = useState<Selection>(EMPTY)
+  const [colourIds, setColourIds] = useState<string[]>([])
+  const [colourMenuOpen, setColourMenuOpen] = useState(false)
   const [buyingPrice, setBuyingPrice] = useState('')
   const [sellingPrice, setSellingPrice] = useState('')
   const [sellingPriceLocked, setSellingPriceLocked] = useState(true)
-  const [quantity, setQuantity] = useState('1')
-  const [wholesalerId, setWholesalerId] = useState('')
+  const [quantities, setQuantities] = useState<Record<string, string>>({})
+  const [wholesalerId, setWholesalerId] = useState(() => localStorage.getItem(SUPPLIER_STORAGE_KEY) ?? '')
   // Whoever is at the counter usually enters a run of articles, so this is
   // deliberately not cleared between saves.
-  const [staffId, setStaffId] = useState('')
+  const [staffId, setStaffId] = useState(() => localStorage.getItem(STAFF_STORAGE_KEY) ?? '')
+  const [purchaseReference, setPurchaseReference] = useState('')
+  const [reorderLevel, setReorderLevel] = useState('')
 
   const [showNewBrand, setShowNewBrand] = useState(false)
   const [showNewWholesaler, setShowNewWholesaler] = useState(false)
 
-  const [preview, setPreview] = useState<PreviewResponse | null>(null)
-  const [duplicate, setDuplicate] = useState<ExistingArticle | null>(null)
+  const [previews, setPreviews] = useState<Record<string, PreviewResponse>>({})
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewVersion, setPreviewVersion] = useState(0)
+  const [duplicates, setDuplicates] = useState<DuplicateSize[] | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [banner, setBanner] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
+  const [successToast, setSuccessToast] = useState<string | null>(null)
+  const toastTimer = useRef<number | null>(null)
+
+  useEffect(() => () => { if (toastTimer.current !== null) window.clearTimeout(toastTimer.current) }, [])
 
   // One key per form session. Reused across retries so a double-tap is harmless;
   // reset only after a submission actually succeeds.
@@ -67,12 +76,13 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
     [lookups, sizeGroupId],
   )
 
-  // Clear a size that no longer belongs to the chosen article type.
+  // Clear quantities for sizes that do not belong to the newly selected article type.
   useEffect(() => {
-    if (sel.sizeId && !availableSizes.some(s => String(s.id) === sel.sizeId)) {
-      setSel(s => ({ ...s, sizeId: '' }))
-    }
-  }, [availableSizes, sel.sizeId])
+    const validIds = new Set(availableSizes.map(size => size.id))
+    setQuantities(current => Object.fromEntries(
+      Object.entries(current).filter(([key]) => validIds.has(Number(key.split(':')[1]))),
+    ))
+  }, [availableSizes])
 
   // Selling price follows buying price until the user takes it over.
   useEffect(() => {
@@ -83,39 +93,46 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
       : (buy * lookups.defaultMarkup).toFixed(2))
   }, [buyingPrice, sellingPriceLocked, lookups])
 
-  const codeFragments = useMemo(() => {
-    const pick = (list: LookupItem[] | undefined, id: string) =>
-      list?.find(i => String(i.id) === id)?.code ?? null
-    return [
-      pick(lookups?.articleTypes, sel.articleTypeId),
-      pick(lookups?.brands, sel.brandId),
-      pick(lookups?.materials, sel.materialId),
-      pick(lookups?.colours, sel.colourId),
-      pick(lookups?.sizes, sel.sizeId),
-    ]
-  }, [lookups, sel])
-
-  const allSelected = codeFragments.every(Boolean)
-
+  const selectedLines = useMemo(() => colourIds.flatMap(colourId => {
+    const colour = lookups?.colours.find(c => String(c.id) === colourId)
+    return availableSizes.map(size => ({
+      colourId: Number(colourId), colourName: colour?.name ?? '', colourCode: colour?.code ?? '',
+      sizeId: size.id, sizeName: size.name, sizeCode: size.code,
+      key: `${colourId}:${size.id}`, quantity: quantities[`${colourId}:${size.id}`] ?? '',
+    })).filter(line => Number(line.quantity) > 0)
+  }), [availableSizes, colourIds, lookups, quantities])
+  const selectedLineKey = selectedLines.map(line => line.key).join(',')
+  const attributesSelected = Boolean(sel.articleTypeId && sel.brandId && sel.materialId && colourIds.length > 0)
   const selectedWholesaler = lookups?.wholesalers.find(w => String(w.id) === wholesalerId) ?? null
 
-  // Only the existence check needs the server; the code itself assembles locally.
+  // Check each size with stock entered so existing variants can be reviewed together.
   useEffect(() => {
-    if (!allSelected) { setPreview(null); return }
+    if (!attributesSelected || selectedLines.length === 0) {
+      setPreviews({})
+      setPreviewLoading(false)
+      return
+    }
     let cancelled = false
+    setPreviewLoading(true)
+    setPreviews({})
     const timer = setTimeout(() => {
-      api.previewCode({
+      Promise.all(selectedLines.map(line => api.previewCode({
         articleTypeId: Number(sel.articleTypeId),
         brandId: Number(sel.brandId),
         materialId: Number(sel.materialId),
-        colourId: Number(sel.colourId),
-        sizeId: Number(sel.sizeId),
-      })
-        .then(p => { if (!cancelled) setPreview(p) })
-        .catch(() => { if (!cancelled) setPreview(null) })
+        colourId: line.colourId,
+        sizeId: line.sizeId,
+      }).then(preview => [line.key, preview] as const)))
+        .then(rows => {
+          if (!cancelled) setPreviews(Object.fromEntries(rows))
+        })
+        .catch(() => {
+          if (!cancelled) setPreviews({})
+        })
+        .finally(() => { if (!cancelled) setPreviewLoading(false) })
     }, 150)
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [allSelected, sel])
+  }, [attributesSelected, selectedLineKey, previewVersion, sel.articleTypeId, sel.brandId, sel.materialId])
 
   const margin = useMemo(() => {
     const buy = Number(buyingPrice), sell = Number(sellingPrice)
@@ -124,54 +141,66 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
   }, [buyingPrice, sellingPrice])
 
   /**
-   * The form's own submit button. A brand-new article is created immediately; an
-   * existing one always goes through the duplicate dialog first, so the cost blend
-   * and the selling-price choice are seen rather than applied silently.
+   * Existing variants are reviewed together before their stock is added.
    */
   function handleFormSubmit(e: FormEvent) {
     e.preventDefault()
-    if (preview?.exists && preview.existing) {
-      setDuplicate(preview.existing)
+    if (previewLoading || selectedLines.length === 0) return
+    if (selectedLines.some(line => !previews[line.key])) {
+      setBanner({ kind: 'err', text: 'Could not check the selected sizes. Please try again.' })
+      setPreviewVersion(version => version + 1)
+      return
+    }
+    const existingSizes = selectedLines.flatMap(line => {
+      const existing = previews[line.key]?.existing
+      return existing ? [{ existing, quantity: Number(line.quantity), colourName: line.colourName }] : []
+    })
+    if (existingSizes.length > 0) {
+      setDuplicates(existingSizes)
     } else {
-      submit('CREATE')
+      void submit(false)
     }
   }
 
   /**
-   * @param sellingPriceOverride a new shelf price chosen in the duplicate dialog,
-   *   or null to leave the existing one alone. Ignored when creating.
+   * @param updateExistingSellingPrice whether to apply the form's price to existing sizes.
    */
-  async function submit(mode: 'CREATE' | 'ADD_STOCK', sellingPriceOverride: number | null = null) {
+  async function submit(updateExistingSellingPrice: boolean) {
     setSubmitting(true)
     setBanner(null)
     try {
-      const res: AddArticleResponse = await api.addArticle({
+      const res: AddArticleBatchResponse = await api.addArticleBatch({
         articleTypeId: Number(sel.articleTypeId),
         brandId: Number(sel.brandId),
         materialId: Number(sel.materialId),
-        colourId: Number(sel.colourId),
-        sizeId: Number(sel.sizeId),
         buyingPrice: Number(buyingPrice),
-        sellingPrice: sellingPriceOverride ?? Number(sellingPrice),
-        quantity: Number(quantity),
+        sellingPrice: Number(sellingPrice),
         wholesalerId: Number(wholesalerId),
         staffId: Number(staffId),
-        mode,
-        updateSellingPrice: sellingPriceOverride !== null,
+        purchaseReference: purchaseReference.trim() || undefined,
+        reorderLevel: reorderLevel === '' ? undefined : Number(reorderLevel),
+        sizes: selectedLines.map(line => ({
+          colourId: line.colourId,
+          sizeId: line.sizeId,
+          quantity: Number(line.quantity),
+          mode: previews[line.key]?.exists ? 'ADD_STOCK' : 'CREATE',
+          updateSellingPrice: Boolean(previews[line.key]?.exists && updateExistingSellingPrice),
+        })),
       }, idempotencyKey.current)
 
-      setBanner({
-        kind: 'ok',
-        text: res.outcome === 'CREATED'
-          ? `Created ${res.articleCode} — ${res.displayName}. ${res.qtyOnHand} in stock.`
-          : `Added to ${res.articleCode}. Now ${res.qtyOnHand} in stock at average cost ₹${res.avgCost.toFixed(2)}${res.sellingPriceChanged ? `, selling price now ₹${res.sellingPrice.toFixed(2)}` : ''}.`,
-      })
-
-      setDuplicate(null)
-      resetForm()
+      const message = `Added ${res.items.length} size${res.items.length === 1 ? '' : 's'} to inventory successfully.`
+      setSuccessToast(message)
+      if (toastTimer.current !== null) window.clearTimeout(toastTimer.current)
+      toastTimer.current = window.setTimeout(() => setSuccessToast(null), 4500)
+      setDuplicates(null)
+      setQuantities({})
+      setPreviews({})
+      idempotencyKey.current = newIdempotencyKey()
     } catch (e) {
-      if (e instanceof HttpError && e.body.code === 'ARTICLE_EXISTS') {
-        setDuplicate(e.body.details.existing as ExistingArticle)
+      if (e instanceof HttpError && ['ARTICLE_EXISTS', 'ARTICLE_MISSING'].includes(e.body.code)) {
+        setDuplicates(null)
+        setBanner({ kind: 'err', text: 'A selected size changed while you were entering stock. Review the sizes and submit again.' })
+        setPreviewVersion(version => version + 1)
       } else {
         setBanner({ kind: 'err', text: e instanceof Error ? e.message : 'Something went wrong' })
       }
@@ -182,18 +211,24 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
 
   function resetForm() {
     setSel(EMPTY)
+    setColourIds([])
     setBuyingPrice('')
     setSellingPrice('')
     setSellingPriceLocked(true)
-    setQuantity('1')
-    setWholesalerId('')
-    setPreview(null)
+    setQuantities({})
+    setPurchaseReference('')
+    setReorderLevel('')
+    setPreviews({})
+    setDuplicates(null)
     idempotencyKey.current = newIdempotencyKey()
     firstFieldRef.current?.focus()
   }
 
-  const canSubmit = allSelected && Number(buyingPrice) >= 0 && buyingPrice !== ''
-    && Number(quantity) > 0 && wholesalerId !== '' && staffId !== '' && !submitting
+  const canSubmit = attributesSelected && selectedLines.length > 0
+    && selectedLines.every(line => Boolean(previews[line.key]))
+    && Number(buyingPrice) >= 0 && buyingPrice !== ''
+    && Number(sellingPrice) >= 0 && sellingPrice !== ''
+    && wholesalerId !== '' && staffId !== '' && !previewLoading && !submitting
 
   if (loadError) {
     return (
@@ -214,12 +249,13 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
         <button type="button" className="link" onClick={onBack}>&larr; Dashboard</button>
         <h1>Add article to inventory</h1>
         <p className="muted">
-          Pick the five attributes and the article code builds itself. If the code already
-          exists you will be asked to add stock instead of creating a duplicate.
+          Pick the article details, then enter stock for every size in one go. Existing
+          sizes are added to stock; new sizes are created together.
         </p>
       </header>
 
       {banner && <div className={`banner ${banner.kind}`}>{banner.text}</div>}
+      {successToast && <div className="success-toast" role="status" aria-live="polite">{successToast}</div>}
 
       <form className="card" onSubmit={handleFormSubmit}>
         <div className="grid">
@@ -269,56 +305,98 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
             </select>
           </label>
 
-          <label className="field">
-            <span>Colour</span>
-            <div className="with-swatch">
-              <span
-                className="swatch"
-                style={{
-                  background: lookups.colours.find(c => String(c.id) === sel.colourId)?.hex ?? 'transparent',
-                }}
-                aria-hidden="true"
-              />
-              <select
-                value={sel.colourId}
-                onChange={e => setSel(s => ({ ...s, colourId: e.target.value }))}
-                required
-              >
-                <option value="">Select…</option>
-                {lookups.colours.map(c => (
-                  <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
-                ))}
-              </select>
+          <div className="field colour-picker">
+            <span>Colours <em className="hint">select one or more</em></span>
+            <div className="colour-picker-control">
+              <button type="button" className="colour-picker-trigger" onClick={() => setColourMenuOpen(open => !open)}>
+                {colourIds.length === 0 ? 'Choose colours' : `${colourIds.length} colour${colourIds.length === 1 ? '' : 's'} selected`}
+                <span aria-hidden="true">⌄</span>
+              </button>
+              {colourMenuOpen && (
+                <div className="colour-menu" role="group" aria-label="Choose colours">
+                  {lookups.colours.map(c => (
+                    <label key={c.id} className={`colour-option ${colourIds.includes(String(c.id)) ? 'selected' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={colourIds.includes(String(c.id))}
+                        onChange={e => setColourIds(current => e.target.checked
+                          ? [...current, String(c.id)]
+                          : current.filter(id => id !== String(c.id)))}
+                      />
+                      <span className="swatch sm" style={{ background: c.hex ?? 'transparent' }} />
+                      {c.name}
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
-          </label>
+            {colourIds.length > 0 && (
+              <div className="selected-colour-summary">
+                {colourIds.map(id => lookups.colours.find(c => String(c.id) === id)).filter(Boolean).map(c => (
+                  <span key={c!.id} className="selected-colour-chip">
+                    <span className="swatch sm" style={{ background: c!.hex ?? 'transparent' }} />{c!.name}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
 
-          <label className="field">
-            <span>Size</span>
-            <select
-              value={sel.sizeId}
-              onChange={e => setSel(s => ({ ...s, sizeId: e.target.value }))}
-              disabled={!sel.articleTypeId}
-              required
-            >
-              <option value="">
-                {sel.articleTypeId ? 'Select…' : 'Pick an article type first'}
-              </option>
-              {availableSizes.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          </label>
-
-          <label className="field">
-            <span>Quantity</span>
-            <input
-              type="number" min="1" step="1" inputMode="numeric"
-              value={quantity}
-              onChange={e => setQuantity(e.target.value)}
-              required
-            />
-          </label>
         </div>
+
+        <section className="batch-sizes" aria-labelledby="batch-sizes-title">
+          <div className="batch-sizes-heading">
+            <div>
+              <h2 id="batch-sizes-title">Sizes and quantities</h2>
+              <p className="muted">Enter a quantity for each size in this purchase. Leave the rest blank.</p>
+            </div>
+            {selectedLines.length > 0 && <span className="tag ok">{selectedLines.length} selected</span>}
+          </div>
+          {availableSizes.length === 0 ? (
+            <p className="muted">Choose an article type to see its sizes.</p>
+          ) : (
+            <div className="table-scroll">
+              <table className="batch-size-table">
+                <thead><tr><th>Size</th>{colourIds.map(colourId => {
+                  const colour = lookups.colours.find(c => String(c.id) === colourId)
+                  return <th key={colourId}>{colour?.name}</th>
+                })}</tr></thead>
+                <tbody>
+                  {availableSizes.map(size => (
+                    <tr key={size.id}>
+                      <th scope="row">{size.name}</th>
+                      {colourIds.map(colourId => {
+                        const key = `${colourId}:${size.id}`
+                        const quantity = quantities[key] ?? ''
+                        const preview = previews[key]
+                        const status = !quantity || Number(quantity) <= 0 ? ''
+                          : previewLoading ? 'Checking…'
+                            : preview?.exists ? `Stock ${preview.existing?.qtyOnHand ?? 0}`
+                              : preview ? 'New' : 'Waiting…'
+                        return (
+                          <td key={key}>
+                            <div className="quantity-stepper">
+                              <button type="button" aria-label={`Decrease ${size.name} quantity`} disabled={!attributesSelected || submitting || Number(quantity || 0) <= 0} onClick={() => setQuantities(current => ({ ...current, [key]: String(Math.max(0, Number(current[key] || 0) - 1)) }))}>−</button>
+                              <input
+                                aria-label={`${lookups.colours.find(c => String(c.id) === colourId)?.name} quantity for size ${size.name}`}
+                                type="number" min="0" step="1" inputMode="numeric"
+                                placeholder="0"
+                                value={quantity}
+                                onChange={e => setQuantities(current => ({ ...current, [key]: e.target.value }))}
+                                disabled={!attributesSelected || submitting}
+                              />
+                              <button type="button" aria-label={`Increase ${size.name} quantity`} disabled={!attributesSelected || submitting} onClick={() => setQuantities(current => ({ ...current, [key]: String(Number(current[key] || 0) + 1) }))}>+</button>
+                            </div>
+                            <small className={preview?.exists ? 'warn' : 'muted'}>{status}</small>
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
 
         <div className="grid">
           <label className="field">
@@ -330,7 +408,7 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
             </span>
             <select
               value={wholesalerId}
-              onChange={e => setWholesalerId(e.target.value)}
+              onChange={e => { setWholesalerId(e.target.value); localStorage.setItem(SUPPLIER_STORAGE_KEY, e.target.value) }}
               required
             >
               <option value="">Select…</option>
@@ -344,7 +422,7 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
             <span>Added by</span>
             <select
               value={staffId}
-              onChange={e => setStaffId(e.target.value)}
+              onChange={e => { setStaffId(e.target.value); localStorage.setItem(STAFF_STORAGE_KEY, e.target.value) }}
               required
             >
               <option value="">Select…</option>
@@ -352,6 +430,11 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
+          </label>
+
+          <label className="field">
+            <span>Supplier invoice / reference <em className="hint">optional</em></span>
+            <input value={purchaseReference} onChange={e => setPurchaseReference(e.target.value)} placeholder="Invoice number or purchase reference" />
           </label>
 
           {selectedWholesaler && (
@@ -375,6 +458,11 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
               placeholder="0.00"
               required
             />
+          </label>
+
+          <label className="field">
+            <span>Reorder alert at <em className="hint">optional</em></span>
+            <input type="number" min="0" step="1" inputMode="numeric" value={reorderLevel} onChange={e => setReorderLevel(e.target.value)} placeholder="Leave blank to set later" />
           </label>
 
           <label className="field">
@@ -409,11 +497,9 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
           </div>
         </div>
 
-        <CodePreview fragments={codeFragments} preview={preview} />
-
         <div className="actions">
           <button type="submit" className="primary" disabled={!canSubmit}>
-            {submitting ? 'Saving…' : preview?.exists ? 'Add stock to this article' : 'Add this inventory'}
+            {submitting ? 'Saving…' : previewLoading ? 'Checking variants…' : `Save ${selectedLines.length} selected variants`}
           </button>
           <button type="button" className="ghost" onClick={resetForm} disabled={submitting}>
             Clear
@@ -451,15 +537,13 @@ export function AddArticlePage({ onBack }: { onBack: () => void }) {
         />
       )}
 
-      {duplicate && (
-        <DuplicateDialog
-          existing={duplicate}
-          incomingBuyingPrice={Number(buyingPrice)}
-          markup={lookups.defaultMarkup}
-          quantity={Number(quantity)}
+      {duplicates && (
+        <BatchDuplicateDialog
+          sizes={duplicates}
+          sellingPrice={Number(sellingPrice)}
           busy={submitting}
-          onCancel={() => setDuplicate(null)}
-          onConfirm={newPrice => submit('ADD_STOCK', newPrice)}
+          onCancel={() => setDuplicates(null)}
+          onConfirm={updateExistingSellingPrice => void submit(updateExistingSellingPrice)}
         />
       )}
     </div>

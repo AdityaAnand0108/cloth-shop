@@ -1,7 +1,7 @@
 # Cloth Shop
 
 Inventory and billing for a single retail cloth shop.
-React + TypeScript front end, Spring Boot 3 / Java 21 back end, PostgreSQL on Supabase.
+React + TypeScript front end, Spring Boot 3 / Java 21 back end, PostgreSQL on Neon.
 
 Built module by module. **Module 1 (Add Article), Module 2 (Article list and detail) and
 Module 3 (selling at the counter) are complete.**
@@ -16,20 +16,16 @@ cloth-shop/
 
 ## One-time setup
 
-### 1. Create the Supabase database
+### 1. Create the Neon database
 
-1. Sign up at supabase.com and create a project.
-2. **Choose region `ap-south-1` (Mumbai)** — every query crosses the internet, so the
-   nearest region is the difference between a snappy form and a sluggish one.
-3. Save the database password you set; it is shown only once.
-4. Go to **Project Settings -> Database -> Connection string** and copy the
-   **Session pooler** URI.
+1. Create a Neon project on the free plan. Choose the AWS Singapore region to keep the
+   database near the Render API.
+2. In **Connect**, copy both the pooled endpoint (for application requests) and direct
+   endpoint (for Flyway schema migrations). The pooled hostname includes `-pooler`;
+   the direct hostname does not.
+3. Keep `sslmode=require` on both connection URLs.
 
-   > Use the **session** pooler on port **5432**, not the transaction pooler on 6543.
-   > The transaction pooler does not support prepared statements and Hibernate will
-   > fail against it.
-
-### 2. Point the backend at it
+### 2. Point the backend at Neon
 
 ```
 copy backend\.env.example backend\.env
@@ -38,9 +34,10 @@ copy backend\.env.example backend\.env
 Edit `backend\.env`:
 
 ```
-DB_URL=jdbc:postgresql://aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require
-DB_USER=postgres.abcdefghijklmnop        # the project ref from your pooler URI
-DB_PASSWORD=your-database-password
+DB_URL=jdbc:postgresql://YOUR-ENDPOINT-pooler.REGION.aws.neon.tech/neondb?sslmode=require
+DB_MIGRATION_URL=jdbc:postgresql://YOUR-ENDPOINT.REGION.aws.neon.tech/neondb?sslmode=require
+DB_USER=YOUR_NEON_ROLE
+DB_PASSWORD=your-neon-password
 ```
 
 `.env` is gitignored. Never commit it.
@@ -265,7 +262,7 @@ with the till.
 - Quantity is `NUMERIC(12,3)` so fabric by the metre works later.
 - Flyway owns the schema. `ddl-auto` is `validate` and must stay that way.
 - Timestamps are `timestamptz`, stored UTC.
-- Hikari pool is capped at 5 — Supabase's free tier is connection-limited.
+- Hikari pool is capped at 5 for the single-store application.
 
 ## Roadmap
 

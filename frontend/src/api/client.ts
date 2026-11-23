@@ -1,10 +1,12 @@
 import type {
-  AddArticleRequest, AddArticleResponse, ApiError, ArticleDetail, ArticleFilters,
-  ArticleListItem, Bill, CartArticle, CheckoutRequest, DaySummary, LookupItem,
-  Lookups, Page, PreviewResponse, WholesalerItem,
+  AddArticleBatchRequest, AddArticleBatchResponse, AddArticleRequest, AddArticleResponse, ApiError, ArticleDetail, ArticleFilters,
+  ArticleListItem, ArticleSearchSummary, Bill, CartArticle, CheckoutRequest, DaySummary, DashboardReport, LookupItem,
+  Lookups, Page, PreviewResponse, WholesalerItem, InventoryReceiptRequest, InventoryReceiptResponse, ArticleEditGroup,
+  CustomerSummary, ReturnRequest, ReturnResult,
+  ReturnableBill,
 } from './types'
 
-const BASE = '/api/v1'
+const BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 
 export class HttpError extends Error {
   constructor(public status: number, public body: ApiError) {
@@ -15,7 +17,10 @@ export class HttpError extends Error {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init?.headers ?? {}),
+    },
   })
 
   if (!res.ok) {
@@ -66,19 +71,57 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  addArticleBatch: (body: AddArticleBatchRequest, idempotencyKey: string) =>
+    request<AddArticleBatchResponse>('/articles/batch', {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify(body),
+    }),
+
+  receiveInventory: (body: InventoryReceiptRequest, idempotencyKey: string) =>
+    request<InventoryReceiptResponse>('/articles/receive', {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify(body),
+    }),
+
+  setReorderLevel: (variantId: number, reorderLevel: number) =>
+    request<{ reorderLevel: number }>(`/articles/${variantId}/reorder-level`, {
+      method: 'PATCH', body: JSON.stringify({ reorderLevel }),
+    }),
+
+  articleEditGroup: (variantId: number) => request<ArticleEditGroup>(`/articles/${variantId}/edit-group`),
+  updateArticleEditGroup: (variantId: number, variants: Array<{ variantId: number; sellingPrice: number; reorderLevel: number }>) =>
+    request<void>(`/articles/${variantId}/edit-group`, { method: 'PUT', body: JSON.stringify({ variants }) }),
+  adjustArticleStock: (variantId: number, quantityOnHand: number, reason: string) =>
+    request<{ qtyOnHand: number }>(`/articles/${variantId}/adjustment`, {
+      method: 'POST', body: JSON.stringify({ quantityOnHand, reason }),
+    }),
+  recordOwnerUse: (variantId: number, quantity: number, owner: string, note?: string) =>
+    request<import('./types').OwnerUseResponse>(`/articles/${variantId}/owner-use`, {
+      method: 'POST', body: JSON.stringify({ quantity, owner, note }),
+    }),
+
   article: (variantId: number) => request<ArticleDetail>(`/articles/${variantId}`),
+  articleByCode: (code: string) => request<ArticleDetail>(`/articles/by-code/${encodeURIComponent(code)}`),
 
   /**
    * Blank filters are left off the query string entirely, so the server sees "any"
    * rather than having to interpret an empty value. Pass a signal to drop the
    * response of a search the user has already typed past.
    */
-  listArticles: (filters: Partial<ArticleFilters> = {}, signal?: AbortSignal) => {
-    const params = new URLSearchParams({ size: '100' })
+  listArticles: (filters: Partial<ArticleFilters> = {}, signal?: AbortSignal, page = 0, size = 200) => {
+    const params = new URLSearchParams({ size: String(size), page: String(page) })
     for (const [key, value] of Object.entries(filters)) {
       if (value) params.set(key, value)
     }
     return request<Page<ArticleListItem>>(`/articles?${params}`, { signal })
+  },
+
+  articleSearchSummary: (filters: Partial<ArticleFilters> = {}, signal?: AbortSignal) => {
+    const params = new URLSearchParams()
+    for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value)
+    return request<ArticleSearchSummary>(`/articles/summary?${params}`, { signal })
   },
 
   /**
@@ -103,8 +146,46 @@ export const api = {
     }),
 
   bill: (id: number) => request<Bill>(`/sales/${id}`),
+  updateBillPrices: (id: number, lines: Array<{ lineId: number; unitPrice: number }>, total: number) =>
+    request<Bill>(`/sales/${id}/prices`, { method: 'PUT', body: JSON.stringify({ lines, total }) }),
 
   /** Today by default; pass an ISO date to look back at a previous day. */
   day: (date?: string) =>
     request<DaySummary>(`/sales/day${date ? `?date=${date}` : ''}`),
+
+  dashboardReport: (from: string, to: string) => {
+    const params = new URLSearchParams({ from, to })
+    return request<DashboardReport>(`/dashboard/report?${params}`)
+  },
+
+  searchCustomers: (q: string) =>
+    request<CustomerSummary[]>(`/customers?q=${encodeURIComponent(q)}`),
+
+  customerBills: (customerId: number) => request<import('./types').BillSummary[]>(`/customers/${customerId}/bills`),
+  allBills: (q = '', page = 0, size = 50) => {
+    const params = new URLSearchParams({ q, page: String(page), size: String(size) })
+    return request<Page<import('./types').BillSummary>>(`/sales?${params}`)
+  },
+  existingBillNumbers: (billNumbers: string[]) =>
+    request<string[]>('/sales/existing-bill-numbers', { method: 'POST', body: JSON.stringify(billNumbers) }),
+
+  returnSale: (saleId: number, body: ReturnRequest, idempotencyKey: string) =>
+    request<ReturnResult>(`/sales/${saleId}/returns`, {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify(body),
+    }),
+
+  returnableBill: (saleId: number) => request<ReturnableBill>(`/sales/${saleId}/returnable`),
+
+  confirmWhatsAppSent: (saleId: number) => request<Bill>(`/sales/${saleId}/whatsapp-confirm`, {
+    method: 'POST', body: JSON.stringify({ sent: true }),
+  }),
+
+  importSales: (bills: CheckoutRequest[], idempotencyKey: string) =>
+    request<{ bills: Bill[] }>('/sales/import-batch', {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify({ bills }),
+    }),
 }

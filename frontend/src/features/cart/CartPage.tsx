@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api, HttpError } from '../../api/client'
-import type { Bill, CartArticle, Lookups, PaymentMode } from '../../api/types'
+import type { Bill, CartArticle, CustomerSummary, Lookups, PaymentMode } from '../../api/types'
 import { amount, rupees } from '../../money'
 import { useCart } from './CartContext'
 
@@ -8,6 +8,16 @@ const PAYMENT_MODES: PaymentMode[] = ['CASH', 'UPI', 'CARD']
 
 /** What a bill is rounded down to. Nobody hands back four rupees. */
 const ROUND_TO = 10
+const STAFF_STORAGE_KEY = 'bflex.staff.v1'
+const PAYMENT_STORAGE_KEY = 'bflex.payment.v1'
+type CustomerLookupStatus = 'idle' | 'searching' | 'found' | 'suggestions' | 'new'
+
+function phoneKey(phone: string) {
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length === 10) return `91${digits}`
+  if (digits.length === 11 && digits.startsWith('0')) return `91${digits.slice(1)}`
+  return digits
+}
 
 type Props = {
   onBack: () => void
@@ -35,8 +45,12 @@ export function CartPage({ onBack, onBrowse, onBilled, onOpenArticle }: Props) {
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [discountInput, setDiscountInput] = useState('')
-  const [paymentMode, setPaymentMode] = useState<PaymentMode>('CASH')
-  const [staffId, setStaffId] = useState('')
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>(() => (localStorage.getItem(PAYMENT_STORAGE_KEY) as PaymentMode | null) ?? 'CASH')
+  const [staffId, setStaffId] = useState(() => localStorage.getItem(STAFF_STORAGE_KEY) ?? '')
+  const [customerMatches, setCustomerMatches] = useState<CustomerSummary[]>([])
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerSummary | null>(null)
+  const [customerLookupStatus, setCustomerLookupStatus] = useState<CustomerLookupStatus>('idle')
+  const [whatsappOptIn, setWhatsappOptIn] = useState(false)
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -47,6 +61,42 @@ export function CartPage({ onBack, onBrowse, onBilled, onOpenArticle }: Props) {
   useEffect(() => {
     api.lookups().then(setLookups).catch((e: Error) => setError(e.message))
   }, [])
+
+  useEffect(() => {
+    const digits = customerPhone.replace(/\D/g, '')
+    if (digits.length < 10) {
+      setCustomerMatches([])
+      setCustomerLookupStatus('idle')
+      return
+    }
+    let cancelled = false
+    setCustomerLookupStatus('searching')
+    const timer = setTimeout(async () => {
+      try {
+        const matches = await api.searchCustomers(customerPhone)
+        if (cancelled) return
+        const enteredPhone = phoneKey(customerPhone)
+        const exactMatch = matches.find(customer => phoneKey(customer.phone) === enteredPhone)
+        if (exactMatch) {
+          setSelectedCustomer(exactMatch)
+          setCustomerName(exactMatch.name)
+          setWhatsappOptIn(exactMatch.whatsappOptIn)
+          setCustomerMatches([])
+          setCustomerLookupStatus('found')
+        } else {
+          setSelectedCustomer(null)
+          setCustomerMatches(matches)
+          setCustomerLookupStatus(matches.length ? 'suggestions' : 'new')
+        }
+      } catch {
+        if (!cancelled) {
+          setCustomerMatches([])
+          setCustomerLookupStatus('idle')
+        }
+      }
+    }, 240)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [customerPhone])
 
   useEffect(() => {
     if (cart.lines.length === 0) { setArticles([]); return }
@@ -119,6 +169,7 @@ export function CartPage({ onBack, onBrowse, onBilled, onOpenArticle }: Props) {
         staffId: Number(staffId),
         customerName: customerName.trim() || undefined,
         customerPhone: customerPhone.trim() || undefined,
+        whatsappOptIn,
         discount,
         paymentMode,
         note: note.trim() || undefined,
@@ -315,11 +366,25 @@ export function CartPage({ onBack, onBrowse, onBilled, onOpenArticle }: Props) {
                     <span>Phone</span>
                     <input
                       type="text" inputMode="tel" value={customerPhone}
-                      onChange={e => setCustomerPhone(e.target.value)}
+                      onChange={e => {
+                        setCustomerPhone(e.target.value)
+                        if (selectedCustomer) {
+                          setCustomerName(current => current === selectedCustomer.name ? '' : current)
+                          setWhatsappOptIn(false)
+                        }
+                        setSelectedCustomer(null)
+                        setCustomerMatches([])
+                        setCustomerLookupStatus('idle')
+                      }}
                       placeholder="For exchanges and reminders"
                     />
                   </label>
                 </div>
+                {customerLookupStatus === 'searching' && <p className="muted small customer-match-note">Checking saved customers…</p>}
+                {customerMatches.length > 0 && !selectedCustomer && <div className="customer-suggestions" role="listbox" aria-label="Saved customers">{customerMatches.map(customer => <button type="button" key={customer.id} onClick={() => { setSelectedCustomer(customer); setCustomerName(customer.name); setCustomerPhone(customer.phone); setWhatsappOptIn(customer.whatsappOptIn); setCustomerMatches([]); setCustomerLookupStatus('found') }}><span><strong>{customer.name}</strong><small>{customer.phone} · {customer.visitCount} visits · {rupees(customer.lifetimeSpend)} lifetime</small></span><span className="muted">Use customer</span></button>)}</div>}
+                {selectedCustomer && <p className="muted small customer-match-note">Returning customer · {selectedCustomer.visitCount} visits · lifetime spend {rupees(selectedCustomer.lifetimeSpend)}</p>}
+                {customerLookupStatus === 'new' && <p className="muted small customer-match-note">No saved customer found for this number.</p>}
+                <label className="inline-check whatsapp-consent"><input type="checkbox" checked={whatsappOptIn} onChange={e => setWhatsappOptIn(e.target.checked)} /> Customer agrees to receive bill copies on WhatsApp</label>
               </section>
 
               <section className="card bill-card">
@@ -378,7 +443,7 @@ export function CartPage({ onBack, onBrowse, onBilled, onOpenArticle }: Props) {
                         key={mode}
                         type="button"
                         className={paymentMode === mode ? 'seg on' : 'seg'}
-                        onClick={() => setPaymentMode(mode)}
+                        onClick={() => { setPaymentMode(mode); localStorage.setItem(PAYMENT_STORAGE_KEY, mode) }}
                       >
                         {mode === 'CASH' ? 'Cash' : mode === 'UPI' ? 'UPI' : 'Card'}
                       </button>
@@ -389,7 +454,7 @@ export function CartPage({ onBack, onBrowse, onBilled, onOpenArticle }: Props) {
                 <div className="grid">
                   <label className="field">
                     <span>Billed by</span>
-                    <select value={staffId} onChange={e => setStaffId(e.target.value)}>
+                    <select value={staffId} onChange={e => { setStaffId(e.target.value); localStorage.setItem(STAFF_STORAGE_KEY, e.target.value) }}>
                       <option value="">Choose&hellip;</option>
                       {lookups?.staff.map(s => (
                         <option key={s.id} value={s.id}>{s.name}</option>

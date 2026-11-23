@@ -50,13 +50,16 @@ public class SaleLine {
     @Column(name = "list_price", nullable = false, updatable = false, precision = 12, scale = 2)
     private BigDecimal listPrice;
 
-    @Column(name = "unit_price", nullable = false, updatable = false, precision = 12, scale = 2)
+    @Column(name = "unit_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal unitPrice;
 
     /** Weighted average cost at the moment it went out. Fixes the margin forever. */
     @Column(name = "unit_cost", nullable = false, updatable = false, precision = 12, scale = 4)
     private BigDecimal unitCost;
 
-    @Column(name = "line_total", nullable = false, updatable = false, precision = 12, scale = 2)
+    @Column(name = "cost_estimated", nullable = false, updatable = false)
+    private boolean costEstimated;
+
+    @Column(name = "line_total", nullable = false, precision = 12, scale = 2)
     private BigDecimal lineTotal;
 }
